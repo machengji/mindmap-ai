@@ -1,5 +1,5 @@
 <template>
-  <div class="node-item ml-4 mt-2 border-l-2 border-gray-100 pl-4 transition-all">
+  <div class="node-item ml-2 md:ml-4 mt-2 border-l-2 border-gray-100 pl-2 md:pl-4 transition-all">
     <div class="flex items-center group">
       <div class="flex-1 flex items-center bg-white/50 backdrop-blur-sm border border-gray-200 rounded-lg px-3 py-2 hover:border-blue-400 hover:shadow-sm transition-all">
         <input 
@@ -8,7 +8,7 @@
           placeholder="节点内容..."
         />
         
-        <div class="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+        <div class="flex items-center gap-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
           <button 
             @click="$emit('expand', node)" 
             :disabled="node.isLoading"
