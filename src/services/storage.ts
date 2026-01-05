@@ -6,7 +6,7 @@ const APP_KEY = '0DF5TPnflU45HnbyFvVNPLxq';
 const SERVER_URL = 'https://fnjb5kxi.lc-cn-n1-shared.com';
 
 // 初始化 LeanCloud
-if (APP_ID && APP_ID !== '你的_APP_ID') {
+if (APP_ID) {
     AV.init({
         appId: APP_ID,
         appKey: APP_KEY,

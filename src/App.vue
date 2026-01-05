@@ -126,7 +126,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue';
-import { BrainCircuit, Download, RotateCcw, Eye, Key, Cloud, CloudCheck, CloudOff, Loader2 } from 'lucide-vue-next';
+import { BrainCircuit, Download, RotateCcw, Eye, Key, Cloud, CloudCheck, Loader2 } from 'lucide-vue-next';
 import MindNode from './components/MindNode.vue';
 import MarkmapPreview from './components/MarkmapPreview.vue';
 import type { MindNode as MindNodeType } from './types';
