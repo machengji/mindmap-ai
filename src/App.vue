@@ -164,14 +164,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { BrainCircuit, Download, RotateCcw, Eye, Key, Cloud, CloudCheck, Loader2, History, Clock } from 'lucide-vue-next';
 import MindNode from './components/MindNode.vue';
 import MarkmapPreview from './components/MarkmapPreview.vue';
 import type { MindNode as MindNodeType } from './types';
 import { jsonToMarkdown, downloadMarkdown } from './utils/markdown';
 import { fetchAIExpansion, setApiKey, getApiKey } from './services/ai';
-import { saveMindmap, loadMindmap, fetchHistory } from './services/storage';
+import { saveMindmap, loadMindmap, fetchHistory, saveApiKey, loadApiKey } from './services/storage';
 
 const apiKeyValue = ref(getApiKey());
 const activeTab = ref<'edit' | 'preview'>('edit');
@@ -180,8 +180,9 @@ const lastSaved = ref<Date | null>(null);
 const showHistory = ref(false);
 const historyList = ref<any[]>([]);
 
-const updateApiKey = () => {
+const updateApiKey = async () => {
   setApiKey(apiKeyValue.value);
+  await saveApiKey(apiKeyValue.value);
 };
 
 const loadHistory = async () => {
@@ -219,15 +220,15 @@ const syncToCloud = async () => {
 };
 
 // 监听数据变化自动保存 (已禁用，改为手动保存)
-/*
-let saveTimeout: any = null;
-watch(rootNode, () => {
-  if (saveTimeout) clearTimeout(saveTimeout);
-  saveTimeout = setTimeout(syncToCloud, 2000);
-}, { deep: true });
-*/
 
 onMounted(async () => {
+  // 加载 API Key
+  const cloudApiKey = await loadApiKey();
+  if (cloudApiKey) {
+    apiKeyValue.value = cloudApiKey;
+    setApiKey(cloudApiKey);
+  }
+
   const savedData = await loadMindmap();
   if (savedData) {
     rootNode.value = savedData;

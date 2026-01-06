@@ -12,11 +12,19 @@
           <button 
             @click="handleExpand" 
             :disabled="node.isLoading"
-            class="p-1 hover:bg-blue-50 rounded text-blue-500 disabled:text-gray-300 transition-colors"
+            class="p-1.5 hover:bg-blue-50 rounded-lg text-blue-600 disabled:text-gray-300 transition-all group/btn"
             title="AI 分解"
           >
-            <Sparkles v-if="!node.isLoading" :size="16" />
-            <Loader2 v-else :size="16" class="animate-spin" />
+            <div v-if="!node.isLoading" class="relative flex items-center justify-center">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" class="group-hover/btn:rotate-90 transition-transform duration-500">
+                <!-- 中心节点 -->
+                <circle cx="12" cy="12" r="3" fill="currentColor" />
+                <!-- 向四周发散的线条 -->
+                <path d="M12 7V4M12 20v-3M7 12H4m16 0h-3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                <path d="M15.5 8.5L18 6M6 18l2.5-2.5M15.5 15.5L18 18M6 6l2.5 2.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+              </svg>
+            </div>
+            <Loader2 v-else :size="18" class="animate-spin" />
           </button>
           
           <button 
@@ -53,7 +61,7 @@
 </template>
 
 <script setup lang="ts">
-import { Sparkles, Plus, Trash2, Loader2 } from 'lucide-vue-next';
+import { Plus, Trash2, Loader2 } from 'lucide-vue-next';
 import { computed } from 'vue';
 import type { MindNode as MindNodeType } from '../types';
 

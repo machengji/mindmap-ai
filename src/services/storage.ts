@@ -64,3 +64,36 @@ export const fetchHistory = async (limit = 10) => {
         return [];
     }
 };
+
+const Config = AV.Object.extend('Config');
+
+export const saveApiKey = async (key: string) => {
+    try {
+        const query = new AV.Query('Config');
+        query.equalTo('key', 'deepseek_api_key');
+        let config = await query.first();
+
+        if (!config) {
+            config = new Config();
+            config.set('key', 'deepseek_api_key');
+        }
+
+        config.set('value', key);
+        await config.save();
+        console.log('API Key 已同步到云端');
+    } catch (error) {
+        console.error('API Key 同步失败:', error);
+    }
+};
+
+export const loadApiKey = async (): Promise<string | null> => {
+    try {
+        const query = new AV.Query('Config');
+        query.equalTo('key', 'deepseek_api_key');
+        const config = await query.first();
+        return config ? config.get('value') : null;
+    } catch (error) {
+        console.error('加载 API Key 失败:', error);
+        return null;
+    }
+};
