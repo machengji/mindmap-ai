@@ -218,12 +218,14 @@ const syncToCloud = async () => {
   isSyncing.value = false;
 };
 
-// 监听数据变化自动保存 (防抖)
+// 监听数据变化自动保存 (已禁用，改为手动保存)
+/*
 let saveTimeout: any = null;
 watch(rootNode, () => {
   if (saveTimeout) clearTimeout(saveTimeout);
   saveTimeout = setTimeout(syncToCloud, 2000);
 }, { deep: true });
+*/
 
 onMounted(async () => {
   const savedData = await loadMindmap();
@@ -270,7 +272,9 @@ const handleDelete = (node: MindNodeType) => {
   findAndDelete(rootNode.value, node);
 };
 
-const handleExport = () => {
+const handleExport = async () => {
+  // 导出时同步到云端历史记录
+  await syncToCloud();
   downloadMarkdown(markdownContent.value, 'mindmap.md');
 };
 
