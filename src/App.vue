@@ -47,6 +47,45 @@
           <Download :size="16" />
           <span class="hidden md:inline">导出 Markdown</span>
         </button>
+        <!-- History Records -->
+        <div class="relative">
+          <button 
+            @click="loadHistory"
+            class="flex items-center gap-2 px-3 py-2 md:px-4 md:py-2 bg-white border border-slate-200 rounded-lg text-sm font-medium hover:bg-slate-50 transition-all"
+            :class="{ 'border-blue-500 text-blue-600': showHistory }"
+          >
+            <History :size="16" />
+            <span class="hidden md:inline">历史记录</span>
+          </button>
+
+          <!-- History Dropdown -->
+          <div v-if="showHistory" class="absolute right-0 mt-2 w-72 bg-white border border-slate-200 rounded-xl shadow-xl z-50 overflow-hidden">
+            <div class="p-3 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
+              <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">最近保存</span>
+              <button @click="showHistory = false" class="text-slate-400 hover:text-slate-600">
+                <RotateCcw :size="12" class="rotate-45" />
+              </button>
+            </div>
+            <div class="max-h-80 overflow-y-auto custom-scrollbar">
+              <div v-if="historyList.length === 0" class="p-8 text-center text-slate-400 text-xs">
+                暂无历史记录
+              </div>
+              <button 
+                v-for="item in historyList" 
+                :key="item.id"
+                @click="selectHistory(item)"
+                class="w-full p-3 text-left hover:bg-slate-50 border-b border-slate-50 last:border-0 transition-colors group"
+              >
+                <div class="text-sm font-medium text-slate-700 group-hover:text-blue-600 truncate">{{ item.title }}</div>
+                <div class="flex items-center gap-1 mt-1 text-[10px] text-slate-400">
+                  <Clock :size="10" />
+                  {{ new Date(item.createdAt).toLocaleString() }}
+                </div>
+              </button>
+            </div>
+          </div>
+        </div>
+
         <button 
           @click="resetTree"
           class="flex items-center gap-2 px-3 py-2 md:px-4 md:py-2 bg-slate-900 text-white rounded-lg text-sm font-medium hover:bg-slate-800 transition-all shadow-md"
@@ -126,21 +165,37 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue';
-import { BrainCircuit, Download, RotateCcw, Eye, Key, Cloud, CloudCheck, Loader2 } from 'lucide-vue-next';
+import { BrainCircuit, Download, RotateCcw, Eye, Key, Cloud, CloudCheck, Loader2, History, Clock } from 'lucide-vue-next';
 import MindNode from './components/MindNode.vue';
 import MarkmapPreview from './components/MarkmapPreview.vue';
 import type { MindNode as MindNodeType } from './types';
 import { jsonToMarkdown, downloadMarkdown } from './utils/markdown';
 import { fetchAIExpansion, setApiKey, getApiKey } from './services/ai';
-import { saveMindmap, loadMindmap } from './services/storage';
+import { saveMindmap, loadMindmap, fetchHistory } from './services/storage';
 
 const apiKeyValue = ref(getApiKey());
 const activeTab = ref<'edit' | 'preview'>('edit');
 const isSyncing = ref(false);
 const lastSaved = ref<Date | null>(null);
+const showHistory = ref(false);
+const historyList = ref<any[]>([]);
 
 const updateApiKey = () => {
   setApiKey(apiKeyValue.value);
+};
+
+const loadHistory = async () => {
+  showHistory.value = !showHistory.value;
+  if (showHistory.value) {
+    historyList.value = await fetchHistory(15);
+  }
+};
+
+const selectHistory = (item: any) => {
+  if (confirm(`确定要恢复到历史版本 "${item.title}" (${new Date(item.createdAt).toLocaleString()}) 吗？当前未保存的更改将丢失。`)) {
+    rootNode.value = JSON.parse(item.content);
+    showHistory.value = false;
+  }
 };
 
 const createNode = (text: string): MindNodeType => ({
@@ -178,11 +233,11 @@ onMounted(async () => {
   }
 });
 
-const handleExpand = async (node: MindNodeType) => {
+const handleExpand = async (node: MindNodeType, path: string[]) => {
   if (node.isLoading) return;
   node.isLoading = true;
   try {
-    const subItems = await fetchAIExpansion(node.text);
+    const subItems = await fetchAIExpansion(path);
     const newNodes = subItems.map(item => createNode(item));
     node.children.push(...newNodes);
   } catch (error: any) {

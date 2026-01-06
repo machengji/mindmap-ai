@@ -46,3 +46,21 @@ export const loadMindmap = async (): Promise<MindNode | null> => {
         return null;
     }
 };
+
+export const fetchHistory = async (limit = 10) => {
+    try {
+        const query = new AV.Query('Mindmap');
+        query.descending('createdAt');
+        query.limit(limit);
+        const results = await query.find();
+        return results.map(item => ({
+            id: item.id,
+            title: item.get('title'),
+            createdAt: item.createdAt,
+            content: item.get('content')
+        }));
+    } catch (error) {
+        console.error('获取历史记录失败:', error);
+        return [];
+    }
+};

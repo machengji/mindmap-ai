@@ -10,7 +10,7 @@
         
         <div class="flex items-center gap-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
           <button 
-            @click="$emit('expand', node)" 
+            @click="handleExpand" 
             :disabled="node.isLoading"
             class="p-1 hover:bg-blue-50 rounded text-blue-500 disabled:text-gray-300 transition-colors"
             title="AI 分解"
@@ -43,7 +43,8 @@
         v-for="child in node.children" 
         :key="child.id" 
         :node="child"
-        @expand="(n) => $emit('expand', n)"
+        :parent-path="currentPath"
+        @expand="(n, path) => $emit('expand', n, path)"
         @add-child="(n) => $emit('add-child', n)"
         @delete="(n) => $emit('delete', n)"
       />
@@ -53,13 +54,24 @@
 
 <script setup lang="ts">
 import { Sparkles, Plus, Trash2, Loader2 } from 'lucide-vue-next';
+import { computed } from 'vue';
 import type { MindNode as MindNodeType } from '../types';
 
-defineProps<{
-  node: MindNodeType
+const props = defineProps<{
+  node: MindNodeType,
+  parentPath?: string[]
 }>();
 
-defineEmits(['expand', 'add-child', 'delete']);
+const emit = defineEmits(['expand', 'add-child', 'delete']);
+
+const currentPath = computed(() => {
+  const path = props.parentPath || [];
+  return [...path, props.node.text];
+});
+
+const handleExpand = () => {
+  emit('expand', props.node, currentPath.value);
+};
 </script>
 
 <style scoped>

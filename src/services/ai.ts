@@ -11,7 +11,7 @@ export function getApiKey() {
     return apiKey;
 }
 
-export async function fetchAIExpansion(parentText: string): Promise<string[]> {
+export async function fetchAIExpansion(path: string[]): Promise<string[]> {
     if (!apiKey) {
         throw new Error('请先设置 DeepSeek API Key');
     }
@@ -22,16 +22,21 @@ export async function fetchAIExpansion(parentText: string): Promise<string[]> {
         dangerouslyAllowBrowser: true // 客户端调用需要开启
     });
 
+    const currentNode = path[path.length - 1];
+    const context = path.length > 1 ? `在【${path.slice(0, -1).join(' > ')}】的背景下，` : '';
+
     const systemPrompt = `
-你是一个思维导图助手。用户会提供一个【父节点】的内容，请你将其分解为 3-5 个具体的【子节点】。
+你是一个思维导图助手。用户会提供当前节点的路径和内容，请你根据上下文将其分解为 3-5 个具体的【子节点】。
+请确保子节点与父级上下文高度相关，避免泛泛而谈。
 请严格以 JSON 格式输出。
 
 EXAMPLE INPUT: 
-Python基础
+路径: Python学习路线 > 基础语法
+当前节点: 变量与类型
 
 EXAMPLE JSON OUTPUT:
 {
-    "sub_nodes": ["变量与类型", "控制流", "函数", "模块与包"]
+    "sub_nodes": ["整数与浮点数", "字符串操作", "布尔值", "列表与元组", "字典与集合"]
 }
 `;
 
@@ -40,7 +45,7 @@ EXAMPLE JSON OUTPUT:
             model: 'deepseek-chat',
             messages: [
                 { role: 'system', content: systemPrompt },
-                { role: 'user', content: `父节点是：【${parentText}】` }
+                { role: 'user', content: `${context}请分解当前节点：【${currentNode}】` }
             ],
             response_format: {
                 type: 'json_object'
