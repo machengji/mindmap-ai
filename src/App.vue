@@ -3,6 +3,22 @@
     <!-- Header -->
     <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-4 md:px-6 sticky top-0 z-30">
       <div class="flex items-center gap-2 md:gap-3">
+        <button 
+          @click="toggleSidebar" 
+          class="p-2 hover:bg-slate-100 rounded-lg text-slate-500 transition-colors hidden md:flex"
+          :title="isSidebarCollapsed ? '展开侧边栏' : '收起侧边栏'"
+        >
+          <PanelLeftOpen v-if="isSidebarCollapsed" :size="20" />
+          <PanelLeftClose v-else :size="20" />
+        </button>
+        <button 
+          @click="toggleLayout" 
+          class="p-2 hover:bg-slate-100 rounded-lg text-slate-500 transition-colors hidden md:flex"
+          :title="layoutMode === 'vertical' ? '切换到上下布局' : '切换到左右布局'"
+        >
+          <Rows v-if="layoutMode === 'vertical'" :size="20" />
+          <Columns v-else :size="20" />
+        </button>
         <div class="w-8 h-8 md:w-10 md:h-10 bg-blue-600 rounded-lg md:rounded-xl flex items-center justify-center shadow-lg shadow-blue-200">
           <BrainCircuit class="text-white" :size="20" />
         </div>
@@ -113,10 +129,21 @@
     </div>
 
     <!-- Main Content -->
-    <main class="flex-1 flex flex-col md:flex-row overflow-hidden">
-      <!-- Left: Editor -->
+    <main 
+      :class="[
+        'flex-1 flex overflow-hidden',
+        layoutMode === 'vertical' ? 'flex-col md:flex-row' : 'flex-col'
+      ]"
+    >
+      <!-- Left/Top: Editor -->
       <aside 
-        :class="['w-full md:w-1/3 border-r border-slate-200 bg-white flex flex-col transition-all', activeTab !== 'edit' ? 'hidden md:flex' : 'flex']"
+        :class="[
+          'border-slate-200 bg-white flex flex-col transition-all duration-300 ease-in-out overflow-hidden',
+          activeTab !== 'edit' ? 'hidden md:flex' : 'flex',
+          layoutMode === 'vertical' 
+            ? (isSidebarCollapsed ? 'md:w-0 md:opacity-0 md:border-r-0' : 'w-full md:w-1/3 border-r') 
+            : (isSidebarCollapsed ? 'md:h-0 md:opacity-0 md:border-b-0' : 'w-full md:h-1/2 border-b')
+        ]"
       >
         <div class="p-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
           <h2 class="text-xs font-bold uppercase tracking-wider text-slate-400">结构编辑器</h2>
@@ -165,7 +192,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
-import { BrainCircuit, Download, RotateCcw, Eye, Key, Cloud, CloudCheck, Loader2, History, Clock } from 'lucide-vue-next';
+import { BrainCircuit, Download, RotateCcw, Eye, Key, Cloud, CloudCheck, Loader2, History, Clock, PanelLeftClose, PanelLeftOpen, Columns, Rows } from 'lucide-vue-next';
 import MindNode from './components/MindNode.vue';
 import MarkmapPreview from './components/MarkmapPreview.vue';
 import type { MindNode as MindNodeType } from './types';
@@ -179,6 +206,16 @@ const isSyncing = ref(false);
 const lastSaved = ref<Date | null>(null);
 const showHistory = ref(false);
 const historyList = ref<any[]>([]);
+const isSidebarCollapsed = ref(false);
+const layoutMode = ref<'vertical' | 'horizontal'>('vertical');
+
+const toggleSidebar = () => {
+  isSidebarCollapsed.value = !isSidebarCollapsed.value;
+};
+
+const toggleLayout = () => {
+  layoutMode.value = layoutMode.value === 'vertical' ? 'horizontal' : 'vertical';
+};
 
 const updateApiKey = async () => {
   setApiKey(apiKeyValue.value);

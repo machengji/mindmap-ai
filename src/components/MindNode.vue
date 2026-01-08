@@ -1,6 +1,17 @@
 <template>
   <div class="node-item ml-2 md:ml-4 mt-2 border-l-2 border-gray-100 pl-2 md:pl-4 transition-all">
     <div class="flex items-center group">
+      <!-- Toggle Button -->
+      <button 
+        v-if="node.children.length"
+        @click="node.isExpanded = !node.isExpanded"
+        class="p-1 -ml-6 mr-1 text-slate-400 hover:text-blue-500 transition-colors"
+      >
+        <ChevronDown v-if="node.isExpanded" :size="14" />
+        <ChevronRight v-else :size="14" />
+      </button>
+      <div v-else class="w-4 mr-1"></div>
+
       <div class="flex-1 flex items-center bg-white/50 backdrop-blur-sm border border-gray-200 rounded-lg px-3 py-2 hover:border-blue-400 hover:shadow-sm transition-all">
         <input 
           v-model="node.text" 
@@ -46,7 +57,7 @@
       </div>
     </div>
 
-    <div v-if="node.children.length" class="children-container mt-1">
+    <div v-if="node.children.length && node.isExpanded" class="children-container mt-1">
       <MindNode 
         v-for="child in node.children" 
         :key="child.id" 
@@ -61,7 +72,7 @@
 </template>
 
 <script setup lang="ts">
-import { Plus, Trash2, Loader2 } from 'lucide-vue-next';
+import { Plus, Trash2, Loader2, ChevronRight, ChevronDown } from 'lucide-vue-next';
 import { computed } from 'vue';
 import type { MindNode as MindNodeType } from '../types';
 
