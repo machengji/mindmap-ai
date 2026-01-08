@@ -1,5 +1,5 @@
 <template>
-  <div class="min-h-screen bg-[#f8fafc] flex flex-col font-sans text-slate-900">
+  <div class="h-screen bg-[#f8fafc] flex flex-col font-sans text-slate-900 overflow-hidden">
     <!-- Header -->
     <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-4 md:px-6 sticky top-0 z-30">
       <div class="flex items-center gap-2 md:gap-3">
