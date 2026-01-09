@@ -54,7 +54,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue';
 import MindMap from 'simple-mind-map';
-import { Sparkles, Loader2, Trash2, Image as ImageIcon, Wand2 } from 'lucide-vue-next';
+import { Loader2, Trash2, Image as ImageIcon, Wand2 } from 'lucide-vue-next';
 import type { MindNode } from '../types';
 import { fetchAIExpansion } from '../services/ai';
 
@@ -173,7 +173,7 @@ onMounted(() => {
               setNodeStyle(node, 1);
           });
           // 整体重绘
-          mindMap?.render();
+          mindMap?.render(() => {});
       }
   };
 
@@ -273,7 +273,7 @@ const handleAiExpand = async () => {
         node.nodeData.data.expand = true;
         
         // 触发重绘
-        mindMap?.render();
+        mindMap?.render(() => {});
         
         // 触发保存
         mindMap?.emit('data_change', node.nodeData);
