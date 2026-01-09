@@ -63,7 +63,7 @@
             class="transition-all duration-300 shadow-md"
           />
 
-          <!-- 节点内容：正方形宫格图片列表 -->
+          <!-- 宫格图片列表 -->
           <g v-if="getImages(node).length > 0">
             <image
               v-for="(img, idx) in getImages(node)"
@@ -82,7 +82,7 @@
           <text 
             v-if="editingNodeId !== node.id"
             text-anchor="middle" 
-            :y="node.height / 2 - 15"
+            :y="getImages(node).length > 0 ? (node.height / 2 - 18) : 0"
             dominant-baseline="middle" 
             :style="{ 
               fill: activeNodeId === node.id ? theme?.nodeActiveText : (node.depth === 0 ? theme?.nodeText : '#475569'),
@@ -98,7 +98,7 @@
           <foreignObject 
             v-else
             :x="-node.width / 2" 
-            :y="node.height / 2 - 30" 
+            :y="getImages(node).length > 0 ? (node.height / 2 - 32) : -15" 
             :width="node.width" 
             :height="30"
           >
@@ -114,7 +114,7 @@
             </div>
           </foreignObject>
 
-          <!-- 附件角标 (非图片附件) -->
+          <!-- 附件角标 (非图片) -->
           <g v-if="getFileCount(node) > 0" :transform="`translate(${node.width/2 - 10}, ${-node.height/2 + 10})`">
             <circle r="8" fill="#64748b" />
             <text text-anchor="middle" dominant-baseline="middle" font-size="10" fill="white" font-weight="bold">
@@ -127,7 +127,7 @@
       </g>
     </svg>
 
-    <!-- 设置面板 (省略部分以节省空间，逻辑保持不变) -->
+    <!-- 设置面板 -->
     <div class="absolute top-6 right-6 flex flex-col items-end gap-2 z-50">
       <button 
         @click="isSettingsOpen = !isSettingsOpen"
@@ -165,7 +165,7 @@
       </div>
     </div>
 
-    <!-- 底部操作栏 (省略部分，逻辑保持不变) -->
+    <!-- 底部操作栏 -->
     <div v-if="activeNode" class="absolute bottom-12 left-1/2 -translate-x-1/2 flex flex-col items-center gap-4 w-full px-4 max-w-2xl z-50">
       <div v-if="activeNode.attachments && activeNode.attachments.length > 0" class="flex gap-2 overflow-x-auto p-2 bg-white/80 backdrop-blur-md rounded-2xl shadow-xl border border-slate-200 w-full">
         <div v-for="file in activeNode.attachments" :key="file.id" class="relative group flex-shrink-0">
@@ -229,7 +229,6 @@ const theme = computed(() => themes[currentTheme.value]);
 const getImages = (node: MindNode) => node.attachments?.filter(a => a.type === 'image') || [];
 const getFileCount = (node: MindNode) => node.attachments?.filter(a => a.type === 'file').length || 0;
 
-// --- 宫格布局配置 ---
 const IMG_SIZE = 80;
 const IMG_GAP = 4;
 const NODE_PADDING = 16;
@@ -246,15 +245,10 @@ const getImagePos = (node: MindNode, idx: number) => {
   const { cols } = getGridInfo(images.length);
   const col = idx % cols;
   const row = Math.floor(idx / cols);
-  
-  // 居中计算
   const gridW = cols * IMG_SIZE + (cols - 1) * IMG_GAP;
-  const startX = -gridW / 2;
-  const startY = -node.height / 2 + NODE_PADDING / 2;
-
   return {
-    x: startX + col * (IMG_SIZE + IMG_GAP),
-    y: startY + row * (IMG_SIZE + IMG_GAP)
+    x: -gridW / 2 + col * (IMG_SIZE + IMG_GAP),
+    y: -node.height / 2 + NODE_PADDING / 2 + row * (IMG_SIZE + IMG_GAP)
   };
 };
 
@@ -262,13 +256,11 @@ const calculateNodeSize = (nodeData: any) => {
   const images = getImages(nodeData);
   const { cols, rows } = getGridInfo(images.length);
   const textWidth = nodeData.text.length * 12 + 60;
-  
-  const gridWidth = cols > 0 ? cols * IMG_SIZE + (cols - 1) * IMG_GAP + NODE_PADDING : 0;
-  const gridHeight = rows > 0 ? rows * IMG_SIZE + (rows - 1) * IMG_GAP + NODE_PADDING : 0;
-
+  const gridW = cols > 0 ? cols * IMG_SIZE + (cols - 1) * IMG_GAP + NODE_PADDING : 0;
+  const gridH = rows > 0 ? rows * IMG_SIZE + (rows - 1) * IMG_GAP + NODE_PADDING : 0;
   return {
-    width: Math.max(textWidth, gridWidth),
-    height: Math.max(40, gridHeight + 35) // 35 为底部文字预留空间
+    width: Math.max(textWidth, gridW),
+    height: Math.max(40, gridH + (images.length > 0 ? 35 : 0))
   };
 };
 
@@ -410,9 +402,7 @@ const lastPos = ref({ x: 0, y: 0 });
 const initialPinchDistance = ref<number | null>(null);
 const initialScale = ref(1);
 
-const getDistance = (t1: Touch, t2: Touch) => {
-  return Math.sqrt(Math.pow(t2.clientX - t1.clientX, 2) + Math.pow(t2.clientY - t1.clientY, 2));
-};
+const getDistance = (t1: Touch, t2: Touch) => Math.sqrt(Math.pow(t2.clientX - t1.clientX, 2) + Math.pow(t2.clientY - t1.clientY, 2));
 
 const handleMouseDown = (e: MouseEvent) => { isDragging.value = true; lastPos.value = { x: e.clientX, y: e.clientY }; };
 const handleMouseMove = (e: MouseEvent) => { if (!isDragging.value) return; view.value.x += e.clientX - lastPos.value.x; view.value.y += e.clientY - lastPos.value.y; lastPos.value = { x: e.clientX, y: e.clientY }; };
@@ -421,6 +411,7 @@ const handleWheel = (e: WheelEvent) => { const scale = view.value.scale * (e.del
 
 const handleTouchStart = (e: TouchEvent) => { 
   if (e.touches.length === 2 && e.touches[0] && e.touches[1]) {
+    isDragging.value = false; // 关键：双指缩放时禁用拖拽逻辑
     initialPinchDistance.value = getDistance(e.touches[0], e.touches[1]);
     initialScale.value = view.value.scale;
   } else if (e.touches.length === 1 && e.touches[0]) { 
