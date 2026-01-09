@@ -65,6 +65,17 @@ export const fetchHistory = async (limit = 10) => {
     }
 };
 
+export const deleteHistoryItem = async (id: string): Promise<boolean> => {
+    try {
+        const todo = AV.Object.createWithoutData('Mindmap', id);
+        await todo.destroy();
+        return true;
+    } catch (error) {
+        console.error('删除历史记录失败:', error);
+        return false;
+    }
+};
+
 const Config = AV.Object.extend('Config');
 
 export const saveApiKey = async (key: string) => {

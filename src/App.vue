@@ -87,18 +87,27 @@
               <div v-if="historyList.length === 0" class="p-8 text-center text-slate-400 text-xs">
                 暂无历史记录
               </div>
-              <button 
+              <div 
                 v-for="item in historyList" 
                 :key="item.id"
                 @click="selectHistory(item)"
-                class="w-full p-3 text-left hover:bg-slate-50 border-b border-slate-50 last:border-0 transition-colors group"
+                class="w-full p-3 flex items-start justify-between hover:bg-slate-50 border-b border-slate-50 last:border-0 transition-colors group cursor-pointer"
               >
-                <div class="text-sm font-medium text-slate-700 group-hover:text-blue-600 truncate">{{ item.title }}</div>
-                <div class="flex items-center gap-1 mt-1 text-[10px] text-slate-400">
-                  <Clock :size="10" />
-                  {{ new Date(item.createdAt).toLocaleString() }}
+                <div class="flex-1 min-w-0 pr-2">
+                    <div class="text-sm font-medium text-slate-700 group-hover:text-blue-600 truncate">{{ item.title }}</div>
+                    <div class="flex items-center gap-1 mt-1 text-[10px] text-slate-400">
+                    <Clock :size="10" />
+                    {{ new Date(item.createdAt).toLocaleString() }}
+                    </div>
                 </div>
-              </button>
+                <button 
+                    @click="(e) => deleteHistory(item, e)"
+                    class="opacity-0 group-hover:opacity-100 p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded transition-all"
+                    title="删除此记录"
+                >
+                    <Trash2 :size="14" />
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -133,12 +142,12 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue';
-import { BrainCircuit, Download, RotateCcw, Key, Cloud, CloudCheck, Loader2, History, Clock, FilePlus, FolderOpen, Save } from 'lucide-vue-next';
+import { BrainCircuit, Download, RotateCcw, Key, Cloud, CloudCheck, Loader2, History, Clock, FilePlus, FolderOpen, Save, Trash2 } from 'lucide-vue-next';
 import MindMapCanvas from './components/MindMapCanvas.vue';
 import type { MindNode as MindNodeType } from './types';
 import { jsonToMarkdown, downloadMarkdown } from './utils/markdown';
 import { setApiKey, getApiKey } from './services/ai';
-import { saveMindmap, loadMindmap, fetchHistory, saveApiKey, loadApiKey } from './services/storage';
+import { saveMindmap, loadMindmap, fetchHistory, saveApiKey, loadApiKey, deleteHistoryItem } from './services/storage';
 import { openLocalFile, saveLocalFile, newLocalProject, getCurrentFileName } from './services/fileSystem';
 
 const apiKeyValue = ref(getApiKey());
@@ -180,6 +189,20 @@ const selectHistory = (item: any) => {
     }, 50);
   }
 };
+
+const deleteHistory = async (item: any, event: Event) => {
+  event.stopPropagation(); // 阻止冒泡，防止触发 selectHistory
+  if (confirm(`确定要删除历史版本 "${item.title}" 吗？此操作无法撤销。`)) {
+    const success = await deleteHistoryItem(item.id);
+    if (success) {
+      // 从本地列表中移除
+      historyList.value = historyList.value.filter(h => h.id !== item.id);
+    } else {
+      alert('删除失败，请稍后重试');
+    }
+  }
+};
+
 
 // 本地文件系统操作
 const handleNewProject = () => {

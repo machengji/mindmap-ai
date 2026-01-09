@@ -1,7 +1,7 @@
 <template>
   <div class="relative w-full h-full overflow-hidden">
     <!-- 导图容器 -->
-    <div ref="mindMapContainer" class="w-full h-full bg-slate-50"></div>
+    <div ref="mindMapContainer" class="w-full h-full bg-slate-50 touch-none"></div>
     
     <!-- 悬浮工具栏 (当有节点选中时显示) -->
     <div 
