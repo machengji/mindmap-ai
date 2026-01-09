@@ -219,19 +219,23 @@ watch(() => props.data, updateLayout, { deep: true, immediate: true });
 
 // --- 触摸/鼠标处理逻辑 (关键：解决移动端无法拖动) ---
 const handleTouchStart = (e: TouchEvent) => {
-  if (e.touches.length === 1) {
+  const touch = e.touches[0];
+  if (touch) {
     isDragging.value = true;
-    lastTouch.value = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    lastTouch.value = { x: touch.clientX, y: touch.clientY };
   }
 };
 
 const handleTouchMove = (e: TouchEvent) => {
   if (!isDragging.value) return;
-  const dx = e.touches[0].clientX - lastTouch.value.x;
-  const dy = e.touches[0].clientY - lastTouch.value.y;
-  view.value.x += dx;
-  view.value.y += dy;
-  lastTouch.value = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+  const touch = e.touches[0];
+  if (touch) {
+    const dx = touch.clientX - lastTouch.value.x;
+    const dy = touch.clientY - lastTouch.value.y;
+    view.value.x += dx;
+    view.value.y += dy;
+    lastTouch.value = { x: touch.clientX, y: touch.clientY };
+  }
 };
 
 const handleTouchEnd = () => { isDragging.value = false; };
