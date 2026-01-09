@@ -12,17 +12,25 @@
     <svg 
       class="w-full h-full cursor-grab active:cursor-grabbing"
       xmlns="http://www.w3.org/2000/svg"
+      :style="{ backgroundColor: theme?.background }"
     >
-      <!-- 背景网格 (可选，增强移动感) -->
       <defs>
+        <!-- 背景网格 -->
         <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
-          <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#e2e8f0" stroke-width="0.5"/>
+          <path d="M 40 0 L 0 0 0 40" fill="none" :stroke="currentTheme === 'dark' ? '#1e293b' : '#e2e8f0'" stroke-width="0.5"/>
         </pattern>
+        
+        <!-- 手绘震动滤镜 -->
+        <filter id="handDrawnFilter">
+          <feTurbulence type="fractalNoise" baseFrequency="0.04" numOctaves="3" result="noise" />
+          <feDisplacementMap in="SourceGraphic" in2="noise" scale="2" xChannelSelector="R" yChannelSelector="G" />
+        </filter>
       </defs>
+      
       <rect width="100%" height="100%" fill="url(#grid)" />
 
       <!-- 导图主体：通过 transform 实现平移和缩放 -->
-      <g :transform="`translate(${view.x}, ${view.y}) scale(${view.scale})`">
+      <g :transform="`translate(${view.x}, ${view.y}) scale(${view.scale})`" :filter="isHandDrawn ? 'url(#handDrawnFilter)' : ''">
         <!-- 连线层 -->
         <g class="lines">
           <path 
@@ -33,6 +41,7 @@
             :stroke-width="line.width"
             fill="none"
             class="transition-all duration-300"
+            :stroke-dasharray="isHandDrawn ? '0' : ''"
           />
         </g>
 
@@ -50,10 +59,10 @@
             :y="-node.height / 2" 
             :width="node.width" 
             :height="node.height" 
-            rx="12"
+            :rx="skeletonStyle === 'straight' ? '2' : '12'"
             :style="{ 
-              fill: activeNodeId === node.id ? '#2563eb' : '#ffffff',
-              stroke: activeNodeId === node.id ? '#60a5fa' : node.color,
+              fill: activeNodeId === node.id ? theme?.nodeActive : theme?.nodeDefault,
+              stroke: activeNodeId === node.id ? theme?.nodeActive : node.color,
               strokeWidth: node.depth === 0 ? '3px' : '2px'
             }"
             class="transition-all duration-300 shadow-sm"
@@ -62,7 +71,10 @@
           <text 
             text-anchor="middle" 
             dominant-baseline="middle" 
-            :style="{ fill: activeNodeId === node.id ? '#ffffff' : (node.depth === 0 ? '#1e293b' : node.color) }"
+            :style="{ 
+              fill: activeNodeId === node.id ? theme?.nodeActiveText : (node.depth === 0 ? theme?.nodeText : node.color),
+              fontFamily: isHandDrawn ? 'cursive, sans-serif' : 'inherit'
+            }"
             class="select-none font-bold text-sm transition-colors duration-300"
           >
             {{ node.text }}
@@ -80,35 +92,100 @@
       </g>
     </svg>
 
+    <!-- 样式设置面板 -->
+    <div class="absolute top-6 right-6 flex flex-col gap-2 z-50">
+      <div class="bg-white/90 backdrop-blur-md p-2 rounded-2xl shadow-xl border border-slate-200 flex flex-col gap-3">
+        <!-- 主题切换 -->
+        <div class="flex items-center gap-2 p-1">
+          <Palette :size="18" class="text-slate-400" />
+          <div class="flex gap-1">
+            <button 
+              v-for="(_, key) in themes" 
+              :key="key"
+              @click="currentTheme = key"
+              :class="[
+                'w-6 h-6 rounded-full border-2 transition-all',
+                currentTheme === key ? 'border-indigo-500 scale-110' : 'border-transparent'
+              ]"
+              :style="{ backgroundColor: themes[key].nodeActive }"
+              :title="themes[key].name"
+            />
+          </div>
+        </div>
+        
+        <div class="h-px bg-slate-100 mx-1" />
+
+        <!-- 骨架风格 -->
+        <div class="flex items-center gap-2 p-1">
+          <Box :size="18" class="text-slate-400" />
+          <div class="flex bg-slate-100 rounded-lg p-1 gap-1">
+            <button 
+              v-for="s in (['rounded', 'straight', 'wavy'] as SkeletonStyle[])" 
+              :key="s"
+              @click="skeletonStyle = s"
+              :class="[
+                'px-2 py-1 text-[10px] font-bold rounded transition-all',
+                skeletonStyle === s ? 'bg-white shadow-sm text-indigo-600' : 'text-slate-500 hover:text-slate-700'
+              ]"
+            >
+              {{ s === 'rounded' ? '圆角' : s === 'straight' ? '直角' : '波浪' }}
+            </button>
+          </div>
+        </div>
+
+        <div class="h-px bg-slate-100 mx-1" />
+
+        <!-- 手写模式 -->
+        <button 
+          @click="isHandDrawn = !isHandDrawn"
+          :class="[
+            'flex items-center justify-between gap-2 p-2 rounded-xl transition-all',
+            isHandDrawn ? 'bg-indigo-50 text-indigo-600' : 'text-slate-500 hover:bg-slate-50'
+          ]"
+        >
+          <div class="flex items-center gap-2">
+            <Pencil :size="18" />
+            <span class="text-xs font-bold">手绘风格</span>
+          </div>
+          <div :class="['w-8 h-4 rounded-full relative transition-all', isHandDrawn ? 'bg-indigo-600' : 'bg-slate-200']">
+            <div :class="['absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all', isHandDrawn ? 'left-[18px]' : 'left-0.5']" />
+          </div>
+        </button>
+      </div>
+    </div>
+
     <!-- 移动端悬浮 AI 按钮 (仅当有节点选中时) -->
     <div 
       v-if="activeNode"
-      class="absolute bottom-10 left-1/2 -translate-x-1/2 flex items-center gap-4 bg-white/90 backdrop-blur-md px-6 py-3 rounded-2xl shadow-2xl border border-slate-200 z-50 animate-in fade-in slide-in-from-bottom-4"
+      class="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-white/95 backdrop-blur-md px-4 py-2 rounded-2xl shadow-2xl border border-slate-200 z-50 animate-in fade-in slide-in-from-bottom-4 max-w-[90vw]"
     >
-      <div class="text-xs font-bold text-slate-400 uppercase tracking-widest border-r border-slate-200 pr-4 mr-2">
+      <div class="text-sm font-bold text-slate-700 truncate max-w-[120px] border-r border-slate-200 pr-3 mr-1">
         {{ activeNode.text }}
       </div>
-      <button 
-        @click="expandWithAI"
-        :disabled="activeNode.isLoading"
-        class="bg-gradient-to-tr from-indigo-600 to-violet-600 text-white p-3 rounded-xl hover:shadow-lg hover:scale-105 active:scale-95 transition-all disabled:opacity-50"
-      >
-        <Wand2 v-if="!activeNode.isLoading" :size="20" />
-        <Loader2 v-else class="animate-spin" :size="20" />
-      </button>
-      <button 
-        @click="deleteActiveNode"
-        class="bg-slate-100 text-slate-500 p-3 rounded-xl hover:bg-red-50 hover:text-red-500 transition-all"
-      >
-        <Trash2 :size="20" />
-      </button>
+      <div class="flex items-center gap-2">
+        <button 
+          @click="expandWithAI"
+          :disabled="activeNode.isLoading"
+          class="bg-gradient-to-tr from-indigo-600 to-violet-600 text-white p-2.5 rounded-xl hover:shadow-lg hover:scale-105 active:scale-95 transition-all disabled:opacity-50 flex items-center gap-2"
+        >
+          <Wand2 v-if="!activeNode.isLoading" :size="18" />
+          <Loader2 v-else class="animate-spin" :size="18" />
+          <span class="text-xs font-medium pr-1">AI 分解</span>
+        </button>
+        <button 
+          @click="deleteActiveNode"
+          class="bg-slate-100 text-slate-500 p-2.5 rounded-xl hover:bg-red-50 hover:text-red-500 transition-all"
+        >
+          <Trash2 :size="18" />
+        </button>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue';
-import { Wand2, Loader2, Trash2 } from 'lucide-vue-next';
+import { Wand2, Loader2, Trash2, Palette, Box, Pencil } from 'lucide-vue-next';
 import { fetchAIExpansion } from '../services/ai';
 
 interface MindNode {
@@ -130,7 +207,59 @@ const props = defineProps<{
 
 const emit = defineEmits(['update:data']);
 
-// --- 视图平移与缩放状态 ---
+// --- 类型定义 ---
+interface Theme {
+  name: string;
+  background: string;
+  nodeDefault: string;
+  nodeText: string;
+  nodeActive: string;
+  nodeActiveText: string;
+  lines: string[];
+}
+
+type ThemeKey = 'business' | 'macaron' | 'dark';
+
+const themes: Record<ThemeKey, Theme> = {
+  business: {
+    name: '商务精英',
+    background: '#f8fafc',
+    nodeDefault: '#ffffff',
+    nodeText: '#1e293b',
+    nodeActive: '#2563eb',
+    nodeActiveText: '#ffffff',
+    lines: ['#6366f1', '#ec4899', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6']
+  },
+  macaron: {
+    name: '清甜马卡龙',
+    background: '#fff7ed',
+    nodeDefault: '#ffffff',
+    nodeText: '#7c2d12',
+    nodeActive: '#fb923c',
+    nodeActiveText: '#ffffff',
+    lines: ['#fca5a5', '#fcd34d', '#93c5fd', '#c084fc', '#86efac', '#fdba74']
+  },
+  dark: {
+    name: '深邃暗黑',
+    background: '#0f172a',
+    nodeDefault: '#1e293b',
+    nodeText: '#f1f5f9',
+    nodeActive: '#38bdf8',
+    nodeActiveText: '#0f172a',
+    lines: ['#38bdf8', '#818cf8', '#c084fc', '#4ade80', '#fb7185', '#fbbf24']
+  }
+};
+
+type SkeletonStyle = 'rounded' | 'straight' | 'wavy';
+
+// --- 状态 ---
+const currentTheme = ref<ThemeKey>('business');
+const skeletonStyle = ref<SkeletonStyle>('rounded');
+const isHandDrawn = ref(false);
+
+// 安全获取主题
+const theme = computed(() => themes[currentTheme.value]);
+
 const view = ref({
   x: window.innerWidth / 2,
   y: window.innerHeight / 2,
@@ -149,10 +278,8 @@ const initialScale = ref(1);
 const flattenedNodes = ref<MindNode[]>([]);
 const connections = ref<any[]>([]);
 
-const rainbowColors = ['#6366f1', '#ec4899', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6'];
-
-const VERTICAL_GAP = 60;
-const HORIZONTAL_GAP = 250;
+const VERTICAL_GAP = 30;
+const HORIZONTAL_GAP = 180;
 
 // 预先计算每个子树的高度
 const calculateSubtreeHeight = (node: any): number => {
@@ -169,7 +296,24 @@ const calculateSubtreeHeight = (node: any): number => {
 const updateLayout = () => {
   const nodes: MindNode[] = [];
   const lines: any[] = [];
+  const activeTheme = theme.value!;
   
+  const generatePath = (x1: number, y1: number, x2: number, y2: number) => {
+    const dx = x2 - x1;
+    const midX = x1 + dx * 0.5;
+
+    if (skeletonStyle.value === 'straight') {
+      return `M ${x1} ${y1} L ${midX} ${y1} L ${midX} ${y2} L ${x2} ${y2}`;
+    } else if (skeletonStyle.value === 'wavy') {
+      const amp = 15;
+      let path = `M ${x1} ${y1} `;
+      path += `C ${x1 + dx*0.4} ${y1}, ${x1 + dx*0.6} ${y2}, ${x2} ${y2}`;
+      return path;
+    } else {
+      return `M ${x1} ${y1} C ${midX} ${y1}, ${midX} ${y2}, ${x2} ${y2}`;
+    }
+  };
+
   const layoutNode = (
     nodeData: any, 
     x: number, 
@@ -180,7 +324,7 @@ const updateLayout = () => {
   ) => {
     const width = nodeData.text.length * 12 + 40;
     const height = 40;
-    const color = depth === 0 ? '#1e293b' : rainbowColors[branchIndex % rainbowColors.length];
+    const color = depth === 0 ? activeTheme.nodeText : activeTheme.lines[branchIndex % activeTheme.lines.length];
     
     const node: MindNode = {
       ...nodeData,
@@ -194,7 +338,6 @@ const updateLayout = () => {
     nodes.push(node);
 
     if (nodeData.children && nodeData.children.length > 0) {
-      // 计算左右分支（如果是根节点）
       let leftChildren = [];
       let rightChildren = [];
       
@@ -218,17 +361,16 @@ const updateLayout = () => {
           const childY = currentY + subtreeHeight / 2;
           const childX = x + HORIZONTAL_GAP;
           const bIndex = depth === 0 ? nodeData.children.indexOf(child) : branchIndex;
-          const childColor = depth === 0 ? rainbowColors[bIndex % rainbowColors.length] : color;
+          const childColor = depth === 0 ? activeTheme.lines[bIndex % activeTheme.lines.length] : color;
 
           layoutNode(child, childX, childY, depth + 1, bIndex, 'right');
           
-          // 连线
           const startX = x + (depth === 0 ? 0 : width / 2);
           const endX = childX - (child.text.length * 12 + 40) / 2;
-          const cp1x = startX + (endX - startX) * 0.5;
+          
           lines.push({
             id: `${nodeData.id}-${child.id}`,
-            d: `M ${startX} ${y} C ${cp1x} ${y}, ${cp1x} ${childY}, ${endX} ${childY}`,
+            d: generatePath(startX, y, endX, childY),
             color: childColor,
             width: Math.max(1, 5 - depth * 1.5)
           });
@@ -247,17 +389,16 @@ const updateLayout = () => {
           const childY = currentY + subtreeHeight / 2;
           const childX = x - HORIZONTAL_GAP;
           const bIndex = depth === 0 ? nodeData.children.indexOf(child) : branchIndex;
-          const childColor = depth === 0 ? rainbowColors[bIndex % rainbowColors.length] : color;
+          const childColor = depth === 0 ? activeTheme.lines[bIndex % activeTheme.lines.length] : color;
 
           layoutNode(child, childX, childY, depth + 1, bIndex, 'left');
           
-          // 连线
           const startX = x - (depth === 0 ? 0 : width / 2);
           const endX = childX + (child.text.length * 12 + 40) / 2;
-          const cp1x = startX + (endX - startX) * 0.5;
+
           lines.push({
             id: `${nodeData.id}-${child.id}`,
-            d: `M ${startX} ${y} C ${cp1x} ${y}, ${cp1x} ${childY}, ${endX} ${childY}`,
+            d: generatePath(startX, y, endX, childY),
             color: childColor,
             width: Math.max(1, 5 - depth * 1.5)
           });
@@ -273,8 +414,8 @@ const updateLayout = () => {
   connections.value = lines;
 };
 
-// 监听数据变化重新布局
-watch(() => props.data, updateLayout, { deep: true, immediate: true });
+// 监听风格变化
+watch([currentTheme, skeletonStyle, isHandDrawn], updateLayout);
 
 // --- 触摸/鼠标处理逻辑 ---
 const getDistance = (t1: Touch, t2: Touch) => {
