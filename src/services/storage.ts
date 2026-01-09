@@ -19,13 +19,23 @@ const Mindmap = AV.Object.extend('Mindmap');
 
 export const saveMindmap = async (rootNode: MindNode) => {
     try {
-        // 每次保存都创建一个新的记录
-        const mindmap = new Mindmap();
+        // 先查询是否已有记录，如果有则更新最后一条，否则新建
+        const query = new AV.Query('Mindmap');
+        query.descending('createdAt');
+        const latest = await query.first();
+
+        let mindmap;
+        // 如果最后一条记录是在 5 分钟内创建的，我们就更新它，否则创建新的历史点
+        if (latest && (new Date().getTime() - latest.createdAt!.getTime() < 5 * 60 * 1000)) {
+            mindmap = latest;
+        } else {
+            mindmap = new Mindmap();
+        }
 
         mindmap.set('content', JSON.stringify(rootNode));
         mindmap.set('title', rootNode.text);
         await mindmap.save();
-        console.log('云端保存成功 (已创建新记录)');
+        console.log('云端同步成功');
     } catch (error) {
         console.error('云端保存失败:', error);
     }
@@ -73,6 +83,17 @@ export const deleteHistoryItem = async (id: string): Promise<boolean> => {
     } catch (error) {
         console.error('删除历史记录失败:', error);
         return false;
+    }
+};
+
+export const uploadFile = async (file: File): Promise<string> => {
+    try {
+        const avFile = new AV.File(file.name, file);
+        const savedFile = await avFile.save();
+        return savedFile.url() || '';
+    } catch (error) {
+        console.error('文件上传失败:', error);
+        throw error;
     }
 };
 

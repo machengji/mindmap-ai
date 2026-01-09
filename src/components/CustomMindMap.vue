@@ -197,6 +197,7 @@
 import { ref, computed, watch, onMounted } from 'vue';
 import { Wand2, Loader2, Trash2, Palette, Box, Paperclip, Plus, X, Edit3 } from 'lucide-vue-next';
 import { fetchAIExpansion } from '../services/ai';
+import { uploadFile } from '../services/storage';
 
 interface Attachment { id: string; name: string; url: string; type: 'image' | 'file'; }
 interface MindNode { id: string; text: string; children: MindNode[]; x: number; y: number; width: number; height: number; isLoading?: boolean; color?: string; depth?: number; attachments?: Attachment[]; }
@@ -342,18 +343,39 @@ const saveEditing = () => {
 };
 
 const triggerFileUpload = () => fileInputRef.value?.click();
-const handleFileUpload = (e: Event) => {
+const handleFileUpload = async (e: Event) => {
   const file = (e.target as HTMLInputElement).files?.[0];
   if (!file || !activeNodeId.value) return;
-  const reader = new FileReader();
-  reader.onload = (ev) => {
-    const attachment: Attachment = { id: Math.random().toString(36).substr(2, 9), name: file.name, url: ev.target?.result as string, type: file.type.startsWith('image/') ? 'image' : 'file' };
+  
+  const currentNode = activeNode.value;
+  if (currentNode) currentNode.isLoading = true;
+
+  try {
+    const fileUrl = await uploadFile(file);
+    const attachment: Attachment = { 
+      id: Math.random().toString(36).substr(2, 9), 
+      name: file.name, 
+      url: fileUrl, 
+      type: file.type.startsWith('image/') ? 'image' : 'file' 
+    };
+
     const newData = JSON.parse(JSON.stringify(props.data));
-    const add = (root: any) => { if (root.id === activeNodeId.value) { (root.attachments ??= []).push(attachment); return true; } return root.children?.some(add); };
+    const add = (root: any) => { 
+      if (root.id === activeNodeId.value) { 
+        (root.attachments ??= []).push(attachment); 
+        return true; 
+      } 
+      return root.children?.some(add); 
+    };
     add(newData);
     emit('update:data', newData);
-  };
-  reader.readAsDataURL(file);
+  } catch (error) {
+    alert('文件上传失败');
+    console.error(error);
+  } finally {
+    if (currentNode) currentNode.isLoading = false;
+    (e.target as HTMLInputElement).value = ''; // Reset input
+  }
 };
 
 const removeAttachment = (nodeId: string, attId: string) => {
