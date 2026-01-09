@@ -407,13 +407,44 @@ const deleteActiveNode = () => {
 
 const isDragging = ref(false);
 const lastPos = ref({ x: 0, y: 0 });
+const initialPinchDistance = ref<number | null>(null);
+const initialScale = ref(1);
+
+const getDistance = (t1: Touch, t2: Touch) => {
+  return Math.sqrt(Math.pow(t2.clientX - t1.clientX, 2) + Math.pow(t2.clientY - t1.clientY, 2));
+};
+
 const handleMouseDown = (e: MouseEvent) => { isDragging.value = true; lastPos.value = { x: e.clientX, y: e.clientY }; };
 const handleMouseMove = (e: MouseEvent) => { if (!isDragging.value) return; view.value.x += e.clientX - lastPos.value.x; view.value.y += e.clientY - lastPos.value.y; lastPos.value = { x: e.clientX, y: e.clientY }; };
 const handleMouseUp = () => isDragging.value = false;
 const handleWheel = (e: WheelEvent) => { const scale = view.value.scale * (e.deltaY > 0 ? 0.9 : 1.1); if (scale > 0.1 && scale < 5) view.value.scale = scale; };
-const handleTouchStart = (e: TouchEvent) => { if (e.touches.length === 1 && e.touches[0]) { isDragging.value = true; lastPos.value = { x: e.touches[0].clientX, y: e.touches[0].clientY }; } };
-const handleTouchMove = (e: TouchEvent) => { if (isDragging.value && e.touches.length === 1 && e.touches[0]) { view.value.x += e.touches[0].clientX - lastPos.value.x; view.value.y += e.touches[0].clientY - lastPos.value.y; lastPos.value = { x: e.touches[0].clientX, y: e.touches[0].clientY }; } };
-const handleTouchEnd = () => isDragging.value = false;
+
+const handleTouchStart = (e: TouchEvent) => { 
+  if (e.touches.length === 2 && e.touches[0] && e.touches[1]) {
+    initialPinchDistance.value = getDistance(e.touches[0], e.touches[1]);
+    initialScale.value = view.value.scale;
+  } else if (e.touches.length === 1 && e.touches[0]) { 
+    isDragging.value = true; 
+    lastPos.value = { x: e.touches[0].clientX, y: e.touches[0].clientY }; 
+  } 
+};
+
+const handleTouchMove = (e: TouchEvent) => { 
+  if (e.touches.length === 2 && e.touches[0] && e.touches[1] && initialPinchDistance.value !== null) {
+    const dist = getDistance(e.touches[0], e.touches[1]);
+    const scale = initialScale.value * (dist / initialPinchDistance.value);
+    if (scale > 0.1 && scale < 5) view.value.scale = scale;
+  } else if (isDragging.value && e.touches.length === 1 && e.touches[0]) { 
+    view.value.x += e.touches[0].clientX - lastPos.value.x; 
+    view.value.y += e.touches[0].clientY - lastPos.value.y; 
+    lastPos.value = { x: e.touches[0].clientX, y: e.touches[0].clientY }; 
+  } 
+};
+
+const handleTouchEnd = (e: TouchEvent) => { 
+  if (e.touches.length < 2) initialPinchDistance.value = null;
+  if (e.touches.length === 0) isDragging.value = false; 
+};
 
 watch(() => props.data, updateLayout, { deep: true, immediate: true });
 watch([currentTheme, skeletonStyle, isHandDrawn], updateLayout);
