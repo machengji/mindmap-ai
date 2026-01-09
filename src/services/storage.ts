@@ -17,33 +17,75 @@ if (APP_ID) {
 
 const Mindmap = AV.Object.extend('Mindmap');
 
-export const saveMindmap = async (rootNode: MindNode) => {
+export const saveMindmap = async (rootNode: MindNode, projectId?: string | null) => {
     try {
-        // 先查询是否已有记录，如果有则更新最后一条，否则新建
-        const query = new AV.Query('Mindmap');
-        query.descending('createdAt');
-        const latest = await query.first();
-
         let mindmap;
-        // 如果最后一条记录是在 5 分钟内创建的，我们就更新它，否则创建新的历史点
-        if (latest && (new Date().getTime() - latest.createdAt!.getTime() < 5 * 60 * 1000)) {
-            mindmap = latest;
+        
+        if (projectId) {
+            // 如果有 ID，直接尝试获取该对象
+            mindmap = AV.Object.createWithoutData('Mindmap', projectId);
         } else {
-            mindmap = new Mindmap();
+            // 如果没有 ID，查询是否已有同名项目，或者新建
+            const query = new AV.Query('Mindmap');
+            query.equalTo('title', rootNode.text);
+            query.descending('updatedAt');
+            const existing = await query.first();
+            
+            // 如果同名项目是在 5 分钟内创建的，更新它，否则新建
+            if (existing && (new Date().getTime() - existing.createdAt!.getTime() < 5 * 60 * 1000)) {
+                mindmap = existing;
+            } else {
+                mindmap = new Mindmap();
+            }
         }
 
         mindmap.set('content', JSON.stringify(rootNode));
         mindmap.set('title', rootNode.text);
-        await mindmap.save();
+        const saved = await mindmap.save();
         console.log('云端同步成功');
+        return saved.id; // 返回项目 ID
     } catch (error) {
         console.error('云端保存失败:', error);
+        return null;
     }
 };
 
-export const loadMindmap = async (): Promise<MindNode | null> => {
+export const fetchAllProjects = async () => {
     try {
         const query = new AV.Query('Mindmap');
+        query.descending('updatedAt');
+        query.limit(100);
+        const results = await query.find();
+        
+        // 按标题去重，只保留每个项目最新的记录（或者你可以选择不去重，显示所有历史）
+        const projectsMap = new Map();
+        results.forEach(item => {
+            const title = item.get('title');
+            if (!projectsMap.has(title)) {
+                projectsMap.set(title, {
+                    id: item.id,
+                    title: title,
+                    updatedAt: item.updatedAt,
+                    content: item.get('content')
+                });
+            }
+        });
+        
+        return Array.from(projectsMap.values());
+    } catch (error) {
+        console.error('获取项目列表失败:', error);
+        return [];
+    }
+};
+
+export const loadMindmap = async (id?: string): Promise<MindNode | null> => {
+    try {
+        const query = new AV.Query('Mindmap');
+        if (id) {
+            const result = await query.get(id);
+            return result ? JSON.parse(result.get('content')) : null;
+        }
+        
         query.descending('updatedAt');
         const mindmap = await query.first();
 

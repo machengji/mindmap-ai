@@ -64,6 +64,16 @@
           <Download :size="16" />
           <span class="hidden md:inline">导出</span>
         </button>
+
+        <!-- Project Zone -->
+        <button 
+          @click="showProjectManager = true"
+          class="flex items-center gap-2 px-3 py-2 md:px-4 md:py-2 bg-indigo-50 text-indigo-600 border border-indigo-100 rounded-lg text-sm font-bold hover:bg-indigo-100 transition-all"
+        >
+          <LayoutGrid :size="16" />
+          <span class="hidden md:inline">项目专区</span>
+        </button>
+
         <!-- History Records -->
         <div class="relative">
           <button 
@@ -136,13 +146,21 @@
         @update:data="handleDataUpdate"
       />
     </main>
+
+    <ProjectManager 
+      v-if="showProjectManager" 
+      :is-open="showProjectManager" 
+      @close="showProjectManager = false" 
+      @select="handleSelectProject"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, watch } from 'vue';
-import { BrainCircuit, Download, RotateCcw, Key, Cloud, CloudCheck, Loader2, History, Clock, FilePlus, FolderOpen, Save, Trash2 } from 'lucide-vue-next';
+import { BrainCircuit, Download, RotateCcw, Key, Cloud, CloudCheck, Loader2, History, Clock, FilePlus, FolderOpen, Save, Trash2, LayoutGrid } from 'lucide-vue-next';
 import CustomMindMap from './components/CustomMindMap.vue';
+import ProjectManager from './components/ProjectManager.vue';
 import type { MindNode as MindNodeType } from './types';
 import { jsonToMarkdown, downloadMarkdown } from './utils/markdown';
 import { setApiKey, getApiKey } from './services/ai';
@@ -153,8 +171,10 @@ const apiKeyValue = ref(getApiKey());
 const isSyncing = ref(false);
 const lastSaved = ref<Date | null>(null);
 const showHistory = ref(false);
+const showProjectManager = ref(false);
 const historyList = ref<any[]>([]);
 const projectName = ref('未命名项目');
+const currentProjectId = ref<string | null>(null);
 
 const createNode = (text: string): MindNodeType => ({
   id: Math.random().toString(36).substr(2, 9),
@@ -178,7 +198,6 @@ const updateApiKey = async () => {
   await saveApiKey(apiKeyValue.value);
 };
 
-// ... (History related functions keep same) ...
 const loadHistory = async () => {
   showHistory.value = !showHistory.value;
   if (showHistory.value) {
@@ -197,11 +216,10 @@ const selectHistory = (item: any) => {
 };
 
 const deleteHistory = async (item: any, event: Event) => {
-  event.stopPropagation(); // 阻止冒泡，防止触发 selectHistory
+  event.stopPropagation();
   if (confirm(`确定要删除历史版本 "${item.title}" 吗？此操作无法撤销。`)) {
     const success = await deleteHistoryItem(item.id);
     if (success) {
-      // 从本地列表中移除
       historyList.value = historyList.value.filter(h => h.id !== item.id);
     } else {
       alert('删除失败，请稍后重试');
@@ -209,6 +227,17 @@ const deleteHistory = async (item: any, event: Event) => {
   }
 };
 
+const handleSelectProject = (project: any) => {
+  if (confirm(`确定要加载项目 "${project.title}" 吗？当前未保存的更改将丢失。`)) {
+    rootNode.value = null;
+    projectName.value = project.title;
+    currentProjectId.value = project.id;
+    setTimeout(() => {
+        rootNode.value = JSON.parse(project.content);
+        showProjectManager.value = false;
+    }, 50);
+  }
+};
 
 // 本地文件系统操作
 const handleNewProject = () => {
@@ -216,6 +245,7 @@ const handleNewProject = () => {
     newLocalProject();
     rootNode.value = null;
     projectName.value = '未命名项目';
+    currentProjectId.value = null;
     setTimeout(() => {
       rootNode.value = createNode('中心主题');
     }, 50);
@@ -227,9 +257,9 @@ const handleOpenFile = async () => {
   if (result) {
     rootNode.value = null;
     projectName.value = result.name;
+    currentProjectId.value = null; // 本地文件视为新项目同步
     setTimeout(() => {
       rootNode.value = result.content;
-      // 也可以顺便保存到云端作为备份
       syncToCloud();
     }, 50);
   }
@@ -256,7 +286,10 @@ const handleKeydown = (e: KeyboardEvent) => {
 const syncToCloud = async () => {
   if (!rootNode.value) return;
   isSyncing.value = true;
-  await saveMindmap(rootNode.value);
+  const newId = await saveMindmap(rootNode.value, currentProjectId.value);
+  if (newId) {
+      currentProjectId.value = newId;
+  }
   lastSaved.value = new Date();
   isSyncing.value = false;
 };
@@ -298,6 +331,7 @@ const handleExport = async () => {
 const resetTree = () => {
   if (confirm('确定要重置吗？所有更改都将丢失。')) {
     rootNode.value = null;
+    currentProjectId.value = null;
     setTimeout(() => {
         rootNode.value = createNode('Python学习路线');
     }, 50);
