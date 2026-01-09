@@ -1,7 +1,7 @@
 <template>
-  <div class="h-screen bg-[#f8fafc] flex flex-col font-sans text-slate-900 overflow-hidden">
+  <div class="h-screen h-[100dvh] bg-[#f8fafc] flex flex-col font-sans text-slate-900 overflow-hidden">
     <!-- Header -->
-    <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-4 md:px-6 sticky top-0 z-30 shrink-0">
+    <header class="h-auto min-h-[4rem] pt-[env(safe-area-inset-top)] bg-white border-b border-slate-200 flex items-center justify-between px-4 md:px-6 sticky top-0 z-30 shrink-0">
       <div class="flex items-center gap-2 md:gap-3">
         <div class="w-8 h-8 md:w-10 md:h-10 bg-blue-600 rounded-lg md:rounded-xl flex items-center justify-center shadow-lg shadow-blue-200">
           <BrainCircuit class="text-white" :size="20" />

@@ -166,7 +166,7 @@
     </div>
 
     <!-- 底部操作栏 -->
-    <div v-if="activeNode" class="absolute bottom-12 left-1/2 -translate-x-1/2 flex flex-col items-center gap-4 w-full px-4 max-w-2xl z-50">
+    <div v-if="activeNode" class="fixed bottom-8 sm:bottom-12 left-1/2 -translate-x-1/2 flex flex-col items-center gap-4 w-full px-4 max-w-2xl z-50 pb-[env(safe-area-inset-bottom)]">
       <div v-if="activeNode.attachments && activeNode.attachments.length > 0" class="flex gap-2 overflow-x-auto p-2 bg-white/80 backdrop-blur-md rounded-2xl shadow-xl border border-slate-200 w-full">
         <div v-for="file in activeNode.attachments" :key="file.id" class="relative group flex-shrink-0">
           <img v-if="file.type === 'image'" :src="file.url" class="w-16 h-16 object-cover rounded-xl border border-slate-100" />
@@ -174,9 +174,9 @@
           <button @click.stop="removeAttachment(activeNode.id, file.id)" class="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"><X :size="12" /></button>
         </div>
       </div>
-      <div class="flex items-center gap-3 bg-slate-900/90 backdrop-blur-xl px-4 py-2.5 rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.3)] border border-white/10 w-max">
-        <div class="text-sm font-bold text-white truncate max-w-[100px] border-r border-white/20 pr-3 mr-1">{{ activeNode.text }}</div>
-        <div class="flex items-center gap-2">
+      <div class="flex items-center gap-2 sm:gap-3 bg-slate-900/90 backdrop-blur-xl px-3 sm:px-4 py-2 rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.3)] border border-white/10 w-max max-w-[calc(100vw-2rem)]">
+        <div class="text-xs sm:text-sm font-bold text-white truncate max-w-[60px] sm:max-w-[120px] border-r border-white/20 pr-2 sm:pr-3 mr-1">{{ activeNode.text }}</div>
+        <div class="flex items-center gap-1 sm:gap-2">
           <button @click="startEditing(activeNode)" class="bg-white/10 text-white/70 p-2.5 rounded-2xl hover:bg-white/20 transition-all"><Edit3 :size="18" /></button>
           <button @click="triggerFileUpload" class="bg-white/10 text-white/70 p-2.5 rounded-2xl hover:bg-white/20 transition-all"><Plus :size="18" /></button>
           <input type="file" ref="fileInputRef" class="hidden" @change="handleFileUpload" accept="image/*,.pdf,.doc,.docx,.txt" />
