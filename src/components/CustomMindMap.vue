@@ -82,8 +82,8 @@
           <text 
             v-if="editingNodeId !== node.id"
             text-anchor="middle" 
-            :y="getImages(node).length > 0 ? (node.height / 2 - 18) : 0"
-            dominant-baseline="middle" 
+            :y="getImages(node).length > 0 ? (node.height / 2 - 17.5) : 0"
+            dominant-baseline="central" 
             :style="{ 
               fill: activeNodeId === node.id ? theme?.nodeActiveText : (node.depth === 0 ? theme?.nodeText : '#475569'),
               fontFamily: isHandDrawn ? 'cursive, sans-serif' : 'inherit',
@@ -114,10 +114,10 @@
             </div>
           </foreignObject>
 
-          <!-- 附件角标 (非图片) -->
+          <!-- 附件角标 -->
           <g v-if="getFileCount(node) > 0" :transform="`translate(${node.width/2 - 10}, ${-node.height/2 + 10})`">
             <circle r="8" fill="#64748b" />
-            <text text-anchor="middle" dominant-baseline="middle" font-size="10" fill="white" font-weight="bold">
+            <text text-anchor="middle" dominant-baseline="central" font-size="10" fill="white" font-weight="bold">
               {{ getFileCount(node) }}
             </text>
           </g>
@@ -397,6 +397,7 @@ const deleteActiveNode = () => {
   emit('update:data', newData);
 };
 
+// --- 视图与交互逻辑 ---
 const isDragging = ref(false);
 const lastPos = ref({ x: 0, y: 0 });
 const initialPinchDistance = ref<number | null>(null);
@@ -407,11 +408,21 @@ const getDistance = (t1: Touch, t2: Touch) => Math.sqrt(Math.pow(t2.clientX - t1
 const handleMouseDown = (e: MouseEvent) => { isDragging.value = true; lastPos.value = { x: e.clientX, y: e.clientY }; };
 const handleMouseMove = (e: MouseEvent) => { if (!isDragging.value) return; view.value.x += e.clientX - lastPos.value.x; view.value.y += e.clientY - lastPos.value.y; lastPos.value = { x: e.clientX, y: e.clientY }; };
 const handleMouseUp = () => isDragging.value = false;
-const handleWheel = (e: WheelEvent) => { const scale = view.value.scale * (e.deltaY > 0 ? 0.9 : 1.1); if (scale > 0.1 && scale < 5) view.value.scale = scale; };
+const handleWheel = (e: WheelEvent) => {
+  const delta = e.deltaY > 0 ? 0.9 : 1.1;
+  const newScale = view.value.scale * delta;
+  if (newScale > 0.1 && newScale < 5) {
+    // 鼠标滚轮中心点缩放
+    const scaleRatio = newScale / view.value.scale;
+    view.value.x = e.clientX - (e.clientX - view.value.x) * scaleRatio;
+    view.value.y = e.clientY - (e.clientY - view.value.y) * scaleRatio;
+    view.value.scale = newScale;
+  }
+};
 
 const handleTouchStart = (e: TouchEvent) => { 
   if (e.touches.length === 2 && e.touches[0] && e.touches[1]) {
-    isDragging.value = false; // 关键：双指缩放时禁用拖拽逻辑
+    isDragging.value = false;
     initialPinchDistance.value = getDistance(e.touches[0], e.touches[1]);
     initialScale.value = view.value.scale;
   } else if (e.touches.length === 1 && e.touches[0]) { 
@@ -423,8 +434,19 @@ const handleTouchStart = (e: TouchEvent) => {
 const handleTouchMove = (e: TouchEvent) => { 
   if (e.touches.length === 2 && e.touches[0] && e.touches[1] && initialPinchDistance.value !== null) {
     const dist = getDistance(e.touches[0], e.touches[1]);
-    const scale = initialScale.value * (dist / initialPinchDistance.value);
-    if (scale > 0.1 && scale < 5) view.value.scale = scale;
+    const newScale = initialScale.value * (dist / initialPinchDistance.value);
+    
+    if (newScale > 0.1 && newScale < 5) {
+      const scaleRatio = newScale / view.value.scale;
+      // 计算双指中点
+      const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+      const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+      
+      // 双指中点缩放算法
+      view.value.x = midX - (midX - view.value.x) * scaleRatio;
+      view.value.y = midY - (midY - view.value.y) * scaleRatio;
+      view.value.scale = newScale;
+    }
   } else if (isDragging.value && e.touches.length === 1 && e.touches[0]) { 
     view.value.x += e.touches[0].clientX - lastPos.value.x; 
     view.value.y += e.touches[0].clientY - lastPos.value.y; 
