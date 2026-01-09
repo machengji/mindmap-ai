@@ -305,7 +305,6 @@ const updateLayout = () => {
     if (skeletonStyle.value === 'straight') {
       return `M ${x1} ${y1} L ${midX} ${y1} L ${midX} ${y2} L ${x2} ${y2}`;
     } else if (skeletonStyle.value === 'wavy') {
-      const amp = 15;
       let path = `M ${x1} ${y1} `;
       path += `C ${x1 + dx*0.4} ${y1}, ${x1 + dx*0.6} ${y2}, ${x2} ${y2}`;
       return path;
