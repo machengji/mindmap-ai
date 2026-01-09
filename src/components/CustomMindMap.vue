@@ -210,10 +210,10 @@ const updateLayout = () => {
 
       // 布局右侧
       if (rightChildren.length > 0) {
-        const totalHeight = rightChildren.reduce((acc, child) => acc + calculateSubtreeHeight(child), 0) + (rightChildren.length - 1) * VERTICAL_GAP;
+        const totalHeight = rightChildren.reduce((acc: number, child: any) => acc + calculateSubtreeHeight(child), 0) + (rightChildren.length - 1) * VERTICAL_GAP;
         let currentY = y - totalHeight / 2;
         
-        rightChildren.forEach((child, index) => {
+        rightChildren.forEach((child: any) => {
           const subtreeHeight = calculateSubtreeHeight(child);
           const childY = currentY + subtreeHeight / 2;
           const childX = x + HORIZONTAL_GAP;
@@ -239,10 +239,10 @@ const updateLayout = () => {
 
       // 布局左侧
       if (leftChildren.length > 0) {
-        const totalHeight = leftChildren.reduce((acc, child) => acc + calculateSubtreeHeight(child), 0) + (leftChildren.length - 1) * VERTICAL_GAP;
+        const totalHeight = leftChildren.reduce((acc: number, child: any) => acc + calculateSubtreeHeight(child), 0) + (leftChildren.length - 1) * VERTICAL_GAP;
         let currentY = y - totalHeight / 2;
         
-        leftChildren.forEach((child, index) => {
+        leftChildren.forEach((child: any) => {
           const subtreeHeight = calculateSubtreeHeight(child);
           const childY = currentY + subtreeHeight / 2;
           const childX = x - HORIZONTAL_GAP;
@@ -283,18 +283,20 @@ const getDistance = (t1: Touch, t2: Touch) => {
 
 const handleTouchStart = (e: TouchEvent) => {
   if (e.touches.length === 2) {
-    initialPinchDistance.value = getDistance(e.touches[0], e.touches[1]);
+    initialPinchDistance.value = getDistance(e.touches[0] as Touch, e.touches[1] as Touch);
     initialScale.value = view.value.scale;
   } else if (e.touches.length === 1) {
     const touch = e.touches[0];
-    isDragging.value = true;
-    lastTouch.value = { x: touch.clientX, y: touch.clientY };
+    if (touch) {
+      isDragging.value = true;
+      lastTouch.value = { x: touch.clientX, y: touch.clientY };
+    }
   }
 };
 
 const handleTouchMove = (e: TouchEvent) => {
   if (e.touches.length === 2 && initialPinchDistance.value !== null) {
-    const currentDistance = getDistance(e.touches[0], e.touches[1]);
+    const currentDistance = getDistance(e.touches[0] as Touch, e.touches[1] as Touch);
     const delta = currentDistance / initialPinchDistance.value;
     const newScale = initialScale.value * delta;
     if (newScale > 0.1 && newScale < 5) {
@@ -302,11 +304,13 @@ const handleTouchMove = (e: TouchEvent) => {
     }
   } else if (e.touches.length === 1 && isDragging.value) {
     const touch = e.touches[0];
-    const dx = touch.clientX - lastTouch.value.x;
-    const dy = touch.clientY - lastTouch.value.y;
-    view.value.x += dx;
-    view.value.y += dy;
-    lastTouch.value = { x: touch.clientX, y: touch.clientY };
+    if (touch) {
+      const dx = touch.clientX - lastTouch.value.x;
+      const dy = touch.clientY - lastTouch.value.y;
+      view.value.x += dx;
+      view.value.y += dy;
+      lastTouch.value = { x: touch.clientX, y: touch.clientY };
+    }
   }
 };
 
