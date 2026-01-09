@@ -141,6 +141,8 @@ const view = ref({
 const activeNodeId = ref<string | null>(null);
 const isDragging = ref(false);
 const lastTouch = ref({ x: 0, y: 0 });
+const initialPinchDistance = ref<number | null>(null);
+const initialScale = ref(1);
 
 // --- 计算布局 ---
 // 扁平化节点以便于渲染
@@ -149,14 +151,35 @@ const connections = ref<any[]>([]);
 
 const rainbowColors = ['#6366f1', '#ec4899', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6'];
 
+const VERTICAL_GAP = 60;
+const HORIZONTAL_GAP = 250;
+
+// 预先计算每个子树的高度
+const calculateSubtreeHeight = (node: any): number => {
+  if (!node.children || node.children.length === 0) {
+    return 40; // 节点基础高度
+  }
+  const childrenHeight = node.children.reduce((acc: number, child: any) => {
+    return acc + calculateSubtreeHeight(child);
+  }, 0);
+  const gaps = (node.children.length - 1) * VERTICAL_GAP;
+  return Math.max(40, childrenHeight + gaps);
+};
+
 const updateLayout = () => {
   const nodes: MindNode[] = [];
   const lines: any[] = [];
   
-  const layoutNode = (nodeData: any, x: number, y: number, depth: number, branchIndex: number, direction: 'left' | 'right' | 'center'): number => {
+  const layoutNode = (
+    nodeData: any, 
+    x: number, 
+    y: number, 
+    depth: number, 
+    branchIndex: number, 
+    direction: 'left' | 'right' | 'center'
+  ) => {
     const width = nodeData.text.length * 12 + 40;
     const height = 40;
-    // 修改颜色逻辑：只有深度为 0 的是深色，深度 >= 1 的全部使用分支彩虹色
     const color = depth === 0 ? '#1e293b' : rainbowColors[branchIndex % rainbowColors.length];
     
     const node: MindNode = {
@@ -171,42 +194,78 @@ const updateLayout = () => {
     nodes.push(node);
 
     if (nodeData.children && nodeData.children.length > 0) {
-      const horizontalGap = 250;
-      const verticalGap = 80;
-      let totalHeight = (nodeData.children.length - 1) * verticalGap;
-      let startY = y - totalHeight / 2;
-
-      nodeData.children.forEach((child: any, index: number) => {
-        // 初始方向分配：偶数右，奇数左
-        let currentDir: 'left' | 'right' = depth === 0 
-          ? (index % 2 === 0 ? 'right' : 'left') 
-          : (direction as 'left' | 'right');
-        
-        const childX = currentDir === 'right' ? x + horizontalGap : x - horizontalGap;
-        const childY = startY + index * verticalGap;
-        const bIndex = depth === 0 ? index : branchIndex;
-        
-        // 递归布局
-        const childColor = depth === 0 ? rainbowColors[index % rainbowColors.length] : color;
-        layoutNode(child, childX, childY, depth + 1, bIndex, currentDir);
-        
-        // 生成贝塞尔曲线
-        // 计算起始和终点
-        const startX = currentDir === 'right' ? x + width/2 : x - width/2;
-        const endX = currentDir === 'right' ? childX - (child.text.length * 12 + 40)/2 : childX + (child.text.length * 12 + 40)/2;
-        
-        const cp1x = startX + (endX - startX) * 0.5;
-        const lineD = `M ${startX} ${y} C ${cp1x} ${y}, ${cp1x} ${childY}, ${endX} ${childY}`;
-        
-        lines.push({
-          id: `${nodeData.id}-${child.id}`,
-          d: lineD,
-          color: childColor, // 使用子分支的颜色
-          width: Math.max(1, 5 - depth * 1.5)
+      // 计算左右分支（如果是根节点）
+      let leftChildren = [];
+      let rightChildren = [];
+      
+      if (depth === 0) {
+        nodeData.children.forEach((child: any, index: number) => {
+          if (index % 2 === 0) rightChildren.push(child);
+          else leftChildren.push(child);
         });
-      });
+      } else {
+        if (direction === 'left') leftChildren = nodeData.children;
+        else rightChildren = nodeData.children;
+      }
+
+      // 布局右侧
+      if (rightChildren.length > 0) {
+        const totalHeight = rightChildren.reduce((acc, child) => acc + calculateSubtreeHeight(child), 0) + (rightChildren.length - 1) * VERTICAL_GAP;
+        let currentY = y - totalHeight / 2;
+        
+        rightChildren.forEach((child, index) => {
+          const subtreeHeight = calculateSubtreeHeight(child);
+          const childY = currentY + subtreeHeight / 2;
+          const childX = x + HORIZONTAL_GAP;
+          const bIndex = depth === 0 ? nodeData.children.indexOf(child) : branchIndex;
+          const childColor = depth === 0 ? rainbowColors[bIndex % rainbowColors.length] : color;
+
+          layoutNode(child, childX, childY, depth + 1, bIndex, 'right');
+          
+          // 连线
+          const startX = x + (depth === 0 ? 0 : width / 2);
+          const endX = childX - (child.text.length * 12 + 40) / 2;
+          const cp1x = startX + (endX - startX) * 0.5;
+          lines.push({
+            id: `${nodeData.id}-${child.id}`,
+            d: `M ${startX} ${y} C ${cp1x} ${y}, ${cp1x} ${childY}, ${endX} ${childY}`,
+            color: childColor,
+            width: Math.max(1, 5 - depth * 1.5)
+          });
+
+          currentY += subtreeHeight + VERTICAL_GAP;
+        });
+      }
+
+      // 布局左侧
+      if (leftChildren.length > 0) {
+        const totalHeight = leftChildren.reduce((acc, child) => acc + calculateSubtreeHeight(child), 0) + (leftChildren.length - 1) * VERTICAL_GAP;
+        let currentY = y - totalHeight / 2;
+        
+        leftChildren.forEach((child, index) => {
+          const subtreeHeight = calculateSubtreeHeight(child);
+          const childY = currentY + subtreeHeight / 2;
+          const childX = x - HORIZONTAL_GAP;
+          const bIndex = depth === 0 ? nodeData.children.indexOf(child) : branchIndex;
+          const childColor = depth === 0 ? rainbowColors[bIndex % rainbowColors.length] : color;
+
+          layoutNode(child, childX, childY, depth + 1, bIndex, 'left');
+          
+          // 连线
+          const startX = x - (depth === 0 ? 0 : width / 2);
+          const endX = childX + (child.text.length * 12 + 40) / 2;
+          const cp1x = startX + (endX - startX) * 0.5;
+          lines.push({
+            id: `${nodeData.id}-${child.id}`,
+            d: `M ${startX} ${y} C ${cp1x} ${y}, ${cp1x} ${childY}, ${endX} ${childY}`,
+            color: childColor,
+            width: Math.max(1, 5 - depth * 1.5)
+          });
+
+          currentY += subtreeHeight + VERTICAL_GAP;
+        });
+      }
     }
-    return height;
   };
 
   layoutNode(props.data, 0, 0, 0, 0, 'center');
@@ -217,19 +276,32 @@ const updateLayout = () => {
 // 监听数据变化重新布局
 watch(() => props.data, updateLayout, { deep: true, immediate: true });
 
-// --- 触摸/鼠标处理逻辑 (关键：解决移动端无法拖动) ---
+// --- 触摸/鼠标处理逻辑 ---
+const getDistance = (t1: Touch, t2: Touch) => {
+  return Math.sqrt(Math.pow(t2.clientX - t1.clientX, 2) + Math.pow(t2.clientY - t1.clientY, 2));
+};
+
 const handleTouchStart = (e: TouchEvent) => {
-  const touch = e.touches[0];
-  if (touch) {
+  if (e.touches.length === 2) {
+    initialPinchDistance.value = getDistance(e.touches[0], e.touches[1]);
+    initialScale.value = view.value.scale;
+  } else if (e.touches.length === 1) {
+    const touch = e.touches[0];
     isDragging.value = true;
     lastTouch.value = { x: touch.clientX, y: touch.clientY };
   }
 };
 
 const handleTouchMove = (e: TouchEvent) => {
-  if (!isDragging.value) return;
-  const touch = e.touches[0];
-  if (touch) {
+  if (e.touches.length === 2 && initialPinchDistance.value !== null) {
+    const currentDistance = getDistance(e.touches[0], e.touches[1]);
+    const delta = currentDistance / initialPinchDistance.value;
+    const newScale = initialScale.value * delta;
+    if (newScale > 0.1 && newScale < 5) {
+      view.value.scale = newScale;
+    }
+  } else if (e.touches.length === 1 && isDragging.value) {
+    const touch = e.touches[0];
     const dx = touch.clientX - lastTouch.value.x;
     const dy = touch.clientY - lastTouch.value.y;
     view.value.x += dx;
@@ -238,7 +310,14 @@ const handleTouchMove = (e: TouchEvent) => {
   }
 };
 
-const handleTouchEnd = () => { isDragging.value = false; };
+const handleTouchEnd = (e: TouchEvent) => {
+  if (e.touches.length < 2) {
+    initialPinchDistance.value = null;
+  }
+  if (e.touches.length === 0) {
+    isDragging.value = false;
+  }
+};
 
 const handleMouseDown = (e: MouseEvent) => {
   isDragging.value = true;
