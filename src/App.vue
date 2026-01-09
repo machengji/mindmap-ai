@@ -125,25 +125,24 @@
     <!-- Main Content -->
     <main class="flex-1 relative overflow-hidden">
       <!-- Mobile API Key Input Overlay -->
-      <div v-if="!apiKeyValue" class="md:hidden absolute top-0 left-0 w-full z-20 p-2 bg-yellow-50 border-b border-yellow-100 text-yellow-800 text-xs flex items-center justify-between">
+      <div v-if="!apiKeyValue" class="md:hidden absolute top-0 left-0 w-full z-[60] p-2 bg-yellow-50 border-b border-yellow-100 text-yellow-800 text-xs flex items-center justify-between">
         <span>请输入 API Key 以使用 AI 功能</span>
         <Key :size="14" />
       </div>
 
-      <MindMapCanvas 
+      <CustomMindMap 
         v-if="rootNode"
-        :initial-data="rootNode"
+        v-model:data="rootNode"
         @update:data="handleDataUpdate"
-        @save="syncToCloud"
       />
     </main>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue';
+import { ref, onMounted, onUnmounted, watch } from 'vue';
 import { BrainCircuit, Download, RotateCcw, Key, Cloud, CloudCheck, Loader2, History, Clock, FilePlus, FolderOpen, Save, Trash2 } from 'lucide-vue-next';
-import MindMapCanvas from './components/MindMapCanvas.vue';
+import CustomMindMap from './components/CustomMindMap.vue';
 import type { MindNode as MindNodeType } from './types';
 import { jsonToMarkdown, downloadMarkdown } from './utils/markdown';
 import { setApiKey, getApiKey } from './services/ai';
@@ -166,6 +165,13 @@ const createNode = (text: string): MindNodeType => ({
 });
 
 const rootNode = ref<MindNodeType | null>(null);
+
+// 监听数据变化，自动同步到云端
+watch(() => rootNode.value, () => {
+    if (rootNode.value) {
+        syncToCloud();
+    }
+}, { deep: true });
 
 const updateApiKey = async () => {
   setApiKey(apiKeyValue.value);
