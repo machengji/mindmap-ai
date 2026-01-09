@@ -94,8 +94,20 @@
     </svg>
 
     <!-- 样式设置面板 -->
-    <div class="absolute top-6 right-6 flex flex-col gap-2 z-50">
-      <div class="bg-white/95 backdrop-blur-md p-2 rounded-2xl shadow-2xl border border-slate-200 flex flex-col gap-3">
+    <div class="absolute top-6 right-6 flex flex-col items-end gap-2 z-50">
+      <!-- 切换开关 -->
+      <button 
+        @click="isSettingsOpen = !isSettingsOpen"
+        class="bg-white/95 backdrop-blur-md p-3 rounded-2xl shadow-lg border border-slate-200 text-slate-600 hover:text-indigo-600 transition-all"
+      >
+        <Palette :size="20" v-if="!isSettingsOpen" />
+        <span v-else class="text-xs font-bold px-1">关闭设置</span>
+      </button>
+
+      <div 
+        v-if="isSettingsOpen"
+        class="bg-white/95 backdrop-blur-md p-2 rounded-2xl shadow-2xl border border-slate-200 flex flex-col gap-3 animate-in fade-in slide-in-from-top-2"
+      >
         <!-- 主题切换 -->
         <div class="flex items-center gap-3 p-1">
           <Palette :size="18" class="text-slate-400" />
@@ -158,20 +170,20 @@
     <!-- 移动端悬浮 AI 按钮 (仅当有节点选中时) -->
     <div 
       v-if="activeNode"
-      class="absolute bottom-12 left-1/2 -translate-x-1/2 flex items-center gap-3 bg-slate-900/90 backdrop-blur-xl px-5 py-3 rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.3)] border border-white/10 z-50 animate-in fade-in zoom-in slide-in-from-bottom-8 max-w-[95vw]"
+      class="absolute bottom-12 left-1/2 -translate-x-1/2 flex items-center gap-3 bg-slate-900/90 backdrop-blur-xl px-4 py-2.5 rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.3)] border border-white/10 z-50 animate-in fade-in zoom-in slide-in-from-bottom-8 max-w-[95vw]"
     >
-      <div class="text-sm font-bold text-white truncate max-w-[100px] border-r border-white/20 pr-4 mr-1">
+      <div class="text-sm font-bold text-white truncate max-w-[80px] border-r border-white/20 pr-3 mr-1">
         {{ activeNode.text }}
       </div>
-      <div class="flex items-center gap-3">
+      <div class="flex items-center gap-2">
         <button 
           @click="expandWithAI"
           :disabled="activeNode.isLoading"
-          class="bg-indigo-500 hover:bg-indigo-400 text-white px-4 py-2 rounded-2xl hover:shadow-lg hover:scale-105 active:scale-95 transition-all disabled:opacity-50 flex items-center gap-2"
+          class="bg-indigo-500 hover:bg-indigo-400 text-white p-2.5 sm:px-4 sm:py-2 rounded-2xl hover:shadow-lg hover:scale-105 active:scale-95 transition-all disabled:opacity-50 flex items-center gap-2"
         >
           <Wand2 v-if="!activeNode.isLoading" :size="18" />
           <Loader2 v-else class="animate-spin" :size="18" />
-          <span class="text-xs font-bold pr-1">AI 分解</span>
+          <span class="text-xs font-bold pr-1 hidden sm:inline">AI 分解</span>
         </button>
         <button 
           @click="deleteActiveNode"
@@ -257,6 +269,7 @@ type SkeletonStyle = 'rounded' | 'straight' | 'wavy';
 const currentTheme = ref<ThemeKey>('business');
 const skeletonStyle = ref<SkeletonStyle>('rounded');
 const isHandDrawn = ref(false);
+const isSettingsOpen = ref(false);
 
 // 安全获取主题
 const theme = computed(() => themes[currentTheme.value]);
@@ -414,7 +427,8 @@ const updateLayout = () => {
   connections.value = lines;
 };
 
-// 监听风格变化
+// 监听数据和风格变化
+watch(() => props.data, updateLayout, { deep: true, immediate: true });
 watch([currentTheme, skeletonStyle, isHandDrawn], updateLayout);
 
 // --- 触摸/鼠标处理逻辑 ---
