@@ -18,52 +18,64 @@
         <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
           <path d="M 40 0 L 0 0 0 40" fill="none" :stroke="currentTheme === 'dark' ? '#1e293b' : '#e2e8f0'" stroke-width="0.5"/>
         </pattern>
-        <filter id="handDrawnFilter">
-          <feTurbulence type="fractalNoise" baseFrequency="0.04" numOctaves="3" result="noise" />
-          <feDisplacementMap in="SourceGraphic" in2="noise" scale="2" xChannelSelector="R" yChannelSelector="G" />
-        </filter>
       </defs>
-      
+
       <rect width="100%" height="100%" fill="url(#grid)" />
 
-      <g :transform="`translate(${view.x}, ${view.y}) scale(${view.scale})`" :filter="isHandDrawn ? 'url(#handDrawnFilter)' : ''">
+      <g :transform="`translate(${view.x}, ${view.y}) scale(${view.scale})`">
         <!-- 连线层 -->
         <g class="lines">
           <path 
             v-for="line in connections" 
             :key="line.id" 
             :d="line.d" 
-            :stroke="line.color" 
-            :stroke-width="line.width"
-            fill="none"
-            class="transition-all duration-300"
+            :fill="line.isTapered ? line.color : 'none'"
+            :stroke="line.isTapered ? 'none' : line.color" 
+            :stroke-width="line.isTapered ? 0 : line.width"
+            stroke-linecap="round"
+            class="transition-all duration-300 opacity-90"
           />
         </g>
 
         <!-- 节点层 -->
-        <g 
-          v-for="node in flattenedNodes" 
+        <g
+          v-for="node in flattenedNodes"
           :key="node.id"
           :transform="`translate(${node.x}, ${node.y})`"
           class="cursor-pointer"
           @click.stop="handleNodeClick(node)"
           @dblclick.stop="startEditing(node)"
         >
-          <rect 
-            :x="-node.width / 2" 
-            :y="-node.height / 2" 
-            :width="node.width" 
-            :height="node.height" 
-            :rx="skeletonStyle === 'straight' ? '4' : '12'"
-            :style="{ 
+          <!-- 仅中心节点有背景框 -->
+          <rect
+            v-if="node.depth === 0"
+            :x="-node.width / 2"
+            :y="-node.height / 2"
+            :width="node.width"
+            :height="node.height"
+            rx="12"
+            :style="{
               fill: activeNodeId === node.id ? theme?.nodeActive : theme?.nodeDefault,
-              stroke: activeNodeId === node.id ? theme?.nodeActive : node.color,
-              strokeWidth: node.depth === 0 ? '4px' : '2.5px'
+              stroke: activeNodeId === node.id ? theme?.nodeActive : theme?.nodeText,
+              strokeWidth: '3px'
             }"
-            class="transition-all duration-300 shadow-md"
+            class="transition-all duration-300 shadow-xl"
           />
 
-          <!-- 宫格图片列表 -->
+          <!-- 其他节点：彩色下划线 -->
+          <g v-else>
+            <line
+              :x1="-node.width / 2"
+              :y1="node.height / 2 - 4"
+              :x2="node.width / 2"
+              :y2="node.height / 2 - 4"
+              :stroke="node.color"
+              stroke-width="3"
+              stroke-linecap="round"
+            />
+          </g>
+
+          <!-- 宫格图片列表（作为图标） -->
           <g v-if="getImages(node).length > 0">
             <image
               v-for="(img, idx) in getImages(node)"
@@ -71,25 +83,26 @@
               :href="img.url"
               :x="getImagePos(node, idx).x"
               :y="getImagePos(node, idx).y"
-              :width="80"
-              :height="80"
+              :width="48"
+              :height="48"
               preserveAspectRatio="xMidYMid slice"
-              style="clip-path: inset(0% round 8px);"
+              style="clip-path: inset(0% round 12px);"
             />
           </g>
           
           <!-- 节点文字 -->
-          <text 
+          <text
             v-if="editingNodeId !== node.id"
-            text-anchor="middle" 
-            :y="getImages(node).length > 0 ? (node.height / 2 - 17.5) : 0"
-            dominant-baseline="central" 
-            :style="{ 
-              fill: activeNodeId === node.id ? theme?.nodeActiveText : (node.depth === 0 ? theme?.nodeText : '#475569'),
-              fontFamily: isHandDrawn ? 'cursive, sans-serif' : 'inherit',
-              fontSize: node.depth === 0 ? '16px' : '14px'
+            text-anchor="middle"
+            :y="getImages(node).length > 0 ? (node.height / 2 - 10) : 0"
+            dominant-baseline="central"
+            :style="{
+              fill: node.depth === 0 && activeNodeId === node.id ? theme?.nodeActiveText : (node.depth === 0 ? theme?.nodeText : '#1e293b'),
+              fontFamily: 'inherit',
+              fontSize: node.depth === 0 ? '22px' : '15px',
+              fontWeight: node.depth === 0 ? '900' : '700'
             }"
-            class="select-none font-bold transition-colors duration-300"
+            class="select-none transition-colors duration-300"
           >
             {{ node.text }}
           </text>
@@ -98,9 +111,9 @@
           <foreignObject 
             v-else
             :x="-node.width / 2" 
-            :y="getImages(node).length > 0 ? (node.height / 2 - 32) : -15" 
+            :y="getImages(node).length > 0 ? (node.height / 2 - 32) : (node.depth === 0 ? -20 : -15)" 
             :width="node.width" 
-            :height="30"
+            :height="node.depth === 0 ? 40 : 30"
           >
             <div class="w-full h-full flex items-center justify-center p-1">
               <input 
@@ -108,7 +121,8 @@
                 @blur="saveEditing"
                 @keyup.enter="saveEditing"
                 v-focus
-                class="w-full bg-transparent text-center border-none outline-none font-bold text-sm"
+                class="w-full bg-transparent text-center border-none outline-none font-bold"
+                :class="node.depth === 0 ? 'text-lg' : 'text-sm'"
                 :style="{ color: activeNodeId === node.id ? theme?.nodeActiveText : theme?.nodeText }"
               />
             </div>
@@ -151,14 +165,14 @@
         </div>
         <div class="h-px bg-slate-100 mx-1" />
         <div class="flex items-center gap-3 p-1">
-          <Box :size="18" class="text-slate-400" />
+          <LayoutGrid :size="18" class="text-slate-400" />
           <div class="flex bg-slate-100/50 rounded-xl p-1 gap-1">
-            <button 
-              v-for="s in (['rounded', 'straight', 'wavy'] as SkeletonStyle[])" :key="s"
-              @click="skeletonStyle = s"
-              :class="['px-3 py-1.5 text-xs font-bold rounded-lg transition-all', skeletonStyle === s ? 'bg-white shadow-md text-indigo-600' : 'text-slate-500 hover:text-slate-700']"
+            <button
+              v-for="l in (['balanced', 'logical', 'radial'] as LayoutMode[])" :key="l"
+              @click="layoutMode = l"
+              :class="['px-3 py-1.5 text-xs font-bold rounded-lg transition-all', layoutMode === l ? 'bg-white shadow-md text-indigo-600' : 'text-slate-500 hover:text-slate-700']"
             >
-              {{ s === 'rounded' ? '圆角' : s === 'straight' ? '直角' : '波浪' }}
+              {{ l === 'balanced' ? '思维导图' : l === 'logical' ? '逻辑图' : '放射图' }}
             </button>
           </div>
         </div>
@@ -195,7 +209,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue';
-import { Wand2, Loader2, Trash2, Palette, Box, Paperclip, Plus, X, Edit3 } from 'lucide-vue-next';
+import { Wand2, Loader2, Trash2, Palette, LayoutGrid, Paperclip, Plus, X, Edit3 } from 'lucide-vue-next';
 import { fetchAIExpansion } from '../services/ai';
 import { uploadFile } from '../services/storage';
 
@@ -207,7 +221,7 @@ const emit = defineEmits(['update:data']);
 const vFocus = { mounted: (el: HTMLInputElement) => { el.focus(); el.select(); } };
 
 type ThemeKey = 'business' | 'macaron' | 'dark';
-type SkeletonStyle = 'rounded' | 'straight' | 'wavy';
+type LayoutMode = 'balanced' | 'logical' | 'radial';
 interface Theme { name: string; background: string; nodeDefault: string; nodeText: string; nodeActive: string; nodeActiveText: string; lines: string[]; }
 
 const themes: Record<ThemeKey, Theme> = {
@@ -217,8 +231,7 @@ const themes: Record<ThemeKey, Theme> = {
 };
 
 const currentTheme = ref<ThemeKey>('business');
-const skeletonStyle = ref<SkeletonStyle>('rounded');
-const isHandDrawn = ref(false);
+const layoutMode = ref<LayoutMode>('balanced');
 const isSettingsOpen = ref(false);
 const activeNodeId = ref<string | null>(null);
 const editingNodeId = ref<string | null>(null);
@@ -230,9 +243,8 @@ const theme = computed(() => themes[currentTheme.value]);
 const getImages = (node: MindNode) => node.attachments?.filter(a => a.type === 'image') || [];
 const getFileCount = (node: MindNode) => node.attachments?.filter(a => a.type === 'file').length || 0;
 
-const IMG_SIZE = 80;
-const IMG_GAP = 4;
-const NODE_PADDING = 16;
+const IMG_SIZE = 44; // 略微缩小图标，更精致
+const IMG_GAP = 6;
 
 const getGridInfo = (count: number) => {
   if (count === 0) return { cols: 0, rows: 0 };
@@ -247,33 +259,39 @@ const getImagePos = (node: MindNode, idx: number) => {
   const col = idx % cols;
   const row = Math.floor(idx / cols);
   const gridW = cols * IMG_SIZE + (cols - 1) * IMG_GAP;
+  const gridH = row * IMG_SIZE + (row - 1) * IMG_GAP;
   return {
     x: -gridW / 2 + col * (IMG_SIZE + IMG_GAP),
-    y: -node.height / 2 + NODE_PADDING / 2 + row * (IMG_SIZE + IMG_GAP)
+    y: -gridH / 2 - 12 // 向上偏移，为文字留出空间
   };
 };
 
-const calculateNodeSize = (nodeData: any) => {
+const calculateNodeSize = (nodeData: any, depth: number = 1) => {
   const images = getImages(nodeData);
   const { cols, rows } = getGridInfo(images.length);
-  const textWidth = nodeData.text.length * 12 + 60;
-  const gridW = cols > 0 ? cols * IMG_SIZE + (cols - 1) * IMG_GAP + NODE_PADDING : 0;
-  const gridH = rows > 0 ? rows * IMG_SIZE + (rows - 1) * IMG_GAP + NODE_PADDING : 0;
+  const textWidth = nodeData.text.length * (depth === 0 ? 22 : 16) + (depth === 0 ? 80 : 20);
+  const gridW = cols > 0 ? cols * IMG_SIZE + (cols - 1) * IMG_GAP : 0;
+  const gridH = rows > 0 ? rows * IMG_SIZE + (rows - 1) * IMG_GAP : 0;
+  
+  if (depth === 0) return { width: textWidth, height: 64 };
+  
+  // 子节点高度 = 图片高度 + 间距 + 文字高度
+  const totalH = Math.max(40, gridH + (images.length > 0 ? 30 : 0));
   return {
     width: Math.max(textWidth, gridW),
-    height: Math.max(40, gridH + (images.length > 0 ? 35 : 0))
+    height: totalH
   };
 };
 
 const flattenedNodes = ref<MindNode[]>([]);
 const connections = ref<any[]>([]);
-const VERTICAL_GAP = 30;
-const HORIZONTAL_GAP = 220;
+const VERTICAL_GAP = 20;
+const MIN_HORIZONTAL_GAP = 60;
 
-const calculateSubtreeHeight = (node: any): number => {
-  const { height } = calculateNodeSize(node);
+const calculateSubtreeHeight = (node: any, depth: number = 1): number => {
+  const { height } = calculateNodeSize(node, depth);
   if (!node.children || node.children.length === 0) return height;
-  const childrenHeight = node.children.reduce((acc: number, child: any) => acc + calculateSubtreeHeight(child), 0);
+  const childrenHeight = node.children.reduce((acc: number, child: any) => acc + calculateSubtreeHeight(child, depth + 1), 0);
   return Math.max(height, childrenHeight + (node.children.length - 1) * VERTICAL_GAP);
 };
 
@@ -282,16 +300,66 @@ const updateLayout = () => {
   const lines: any[] = [];
   const activeTheme = theme.value;
   
-  const generatePath = (x1: number, y1: number, x2: number, y2: number) => {
-    const dx = x2 - x1;
-    const midX = x1 + dx * 0.5;
-    if (skeletonStyle.value === 'straight') return `M ${x1} ${y1} L ${midX} ${y1} L ${midX} ${y2} L ${x2} ${y2}`;
-    if (skeletonStyle.value === 'wavy') return `M ${x1} ${y1} C ${x1 + dx*0.4} ${y1}, ${x1 + dx*0.6} ${y2}, ${x2} ${y2}`;
-    return `M ${x1} ${y1} C ${midX} ${y1}, ${midX} ${y2}, ${x2} ${y2}`;
+  // 生成路径：根据深度返回不同风格
+  // 一级：S形渐变曲线 (tapered S-curve)
+  // 二级及更深：圆角折线 (rounded polyline)
+  const generatePath = (
+    x1: number, y1: number,
+    x2: number, y2: number,
+    depth: number,
+    direction: 'left' | 'right'
+  ): { d: string; isTapered: boolean } => {
+    const sign = direction === 'right' ? 1 : -1;
+    const dy = y2 - y1;
+    const absDy = Math.abs(dy);
+
+    if (depth === 0) {
+      // ===== 一级分支：S形渐变曲线 =====
+      const dx = Math.abs(x2 - x1);
+      const startW = 14;  // 起点宽度（束状发散）
+      const endW = 3;     // 终点宽度
+
+      // S曲线控制点 - 制造"束状"发散效果
+      // 先短水平，然后快速弯曲，最后水平进入
+      const bendX = x1 + sign * dx * 0.20;  // 弯曲开始点
+      const approachX = x2 - sign * dx * 0.35; // 进入前的控制点
+
+      const d = `M ${x1} ${y1 - startW / 2}
+            C ${bendX} ${y1 - startW / 2}, ${approachX} ${y2 - endW / 2}, ${x2} ${y2 - endW / 2}
+            L ${x2} ${y2 + endW / 2}
+            C ${approachX} ${y2 + endW / 2}, ${bendX} ${y1 + startW / 2}, ${x1} ${y1 + startW / 2}
+            Z`;
+      return { d, isTapered: true };
+    } else {
+      // ===== 二级及更深：圆角折线 =====
+      const r = 8;  // 圆角半径
+      const outLen = 18; // 出发水平段长度
+
+      // 计算拐点X坐标
+      const cornerX = x1 + sign * outLen;
+
+      // 根据Y方向决定圆角方向
+      const ySign = dy > 0 ? 1 : -1;
+
+      let d: string;
+      if (absDy < r * 2) {
+        // Y距离太小，直接用曲线连接
+        d = `M ${x1} ${y1} Q ${(x1 + x2) / 2} ${y1}, ${x2} ${y2}`;
+      } else {
+        // 标准圆角折线: 水平 → 圆角 → 垂直 → 圆角 → 水平
+        d = `M ${x1} ${y1}
+            L ${cornerX} ${y1}
+            Q ${cornerX + sign * r} ${y1}, ${cornerX + sign * r} ${y1 + ySign * r}
+            L ${cornerX + sign * r} ${y2 - ySign * r}
+            Q ${cornerX + sign * r} ${y2}, ${cornerX + sign * r * 2} ${y2}
+            L ${x2} ${y2}`;
+      }
+      return { d, isTapered: false };
+    }
   };
 
   const layoutNode = (nodeData: any, x: number, y: number, depth: number, branchIndex: number, direction: 'left' | 'right' | 'center') => {
-    const { width, height } = calculateNodeSize(nodeData);
+    const { width, height } = calculateNodeSize(nodeData, depth);
     const color = depth === 0 ? activeTheme.nodeText : activeTheme.lines[branchIndex % activeTheme.lines.length];
     const node: MindNode = { ...nodeData, x, y, width, height, depth, color };
     nodes.push(node);
@@ -299,26 +367,47 @@ const updateLayout = () => {
     if (nodeData.children?.length > 0) {
       let leftC: any[] = [], rightC: any[] = [];
       if (depth === 0) {
-        nodeData.children.forEach((c: any, i: number) => { if (i % 2 === 0) rightC.push(c); else leftC.push(c); });
+        if (layoutMode.value === 'logical') rightC = nodeData.children;
+        else nodeData.children.forEach((c: any, i: number) => { if (i % 2 === 0) rightC.push(c); else leftC.push(c); });
       } else {
         if (direction === 'left') leftC = nodeData.children; else rightC = nodeData.children;
       }
 
       [ { list: rightC, dir: 'right', sign: 1 }, { list: leftC, dir: 'left', sign: -1 } ].forEach(({ list, dir, sign }) => {
         if (list.length === 0) return;
-        const totalH = list.reduce((acc: number, c: any) => acc + calculateSubtreeHeight(c), 0) + (list.length - 1) * VERTICAL_GAP;
+        const totalH = list.reduce((acc: number, c: any) => acc + calculateSubtreeHeight(c, depth + 1), 0) + (list.length - 1) * VERTICAL_GAP;
         let currentY = y - totalH / 2;
         list.forEach((child: any) => {
-          const subH = calculateSubtreeHeight(child);
-          const childSize = calculateNodeSize(child);
+          const subH = calculateSubtreeHeight(child, depth + 1);
+          const childSize = calculateNodeSize(child, depth + 1);
           const childY = currentY + subH / 2;
-          const childX = x + sign * HORIZONTAL_GAP;
+          const childX = x + sign * (width / 2 + MIN_HORIZONTAL_GAP + childSize.width / 2);
           const bIdx = depth === 0 ? nodeData.children.indexOf(child) : branchIndex;
           const childColor = depth === 0 ? activeTheme.lines[bIdx % activeTheme.lines.length] : color;
           layoutNode(child, childX, childY, depth + 1, bIdx, dir as any);
-          const startX = x + sign * (depth === 0 ? 0 : width / 2);
-          const endX = childX - sign * childSize.width / 2;
-          lines.push({ id: `${nodeData.id}-${child.id}`, d: generatePath(startX, y, endX, childY), color: childColor, width: Math.max(2, 6 - depth * 1.5) });
+          
+          // 下划线Y位置（与模板中的下划线位置一致）
+          const underlineY = (h: number) => h / 2 - 4;
+
+          // 起点坐标
+          const startX = x + sign * (width / 2);
+          const startY = depth === 0
+            ? y  // 根节点：从侧边中点出发
+            : y + underlineY(height);  // 其他：从下划线末端出发
+
+          // 终点坐标 - 连接到子节点下划线起点
+          const endX = childX - sign * (childSize.width / 2);
+          const endY = childY + underlineY(childSize.height);
+
+          const pathResult = generatePath(startX, startY, endX, endY, depth, dir as 'left' | 'right');
+
+          lines.push({
+            id: `${nodeData.id}-${child.id}`,
+            d: pathResult.d,
+            color: childColor,
+            width: pathResult.isTapered ? 0 : 2,
+            isTapered: pathResult.isTapered
+          });
           currentY += subH + VERTICAL_GAP;
         });
       });
@@ -482,7 +571,7 @@ const handleTouchEnd = (e: TouchEvent) => {
 };
 
 watch(() => props.data, updateLayout, { deep: true, immediate: true });
-watch([currentTheme, skeletonStyle, isHandDrawn], updateLayout);
+watch([currentTheme, layoutMode], updateLayout);
 onMounted(updateLayout);
 </script>
 
